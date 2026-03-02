@@ -6,6 +6,12 @@ Unlike general-purpose AI assistants (ChatGPT, Gemini, Claude), Colorado Powracl
 
 ---
 
+## Demo
+
+[![Colorado Powracle Demo](https://img.youtube.com/vi/9hb8qsD4CKA/maxresdefault.jpg)](https://www.youtube.com/watch?v=9hb8qsD4CKA)
+
+---
+
 ## Installation & Setup
 
 ### 1. Clone the repo

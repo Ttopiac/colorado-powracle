@@ -1,0 +1,13 @@
+langchain==1.2.10
+langchain-classic==1.0.1
+langchain-openai==1.0.3
+langchain-community==0.4.1
+langchain-core==1.2.16
+python-dotenv
+duckdb
+pandas
+pyarrow
+requests
+streamlit
+plotly
+google-search-results

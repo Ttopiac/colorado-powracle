@@ -1,0 +1,45 @@
+# ── Secrets — never commit ────────────────────────────────────────────────────
+.env
+*.env
+
+# ── Generated data files — regenerate locally with setup scripts ──────────────
+# See README.md → Installation for how to recreate these
+data/
+*.duckdb
+*.parquet
+
+# ── Python bytecode ───────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# ── Virtual environments ──────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+.conda/
+
+# ── OS / editor clutter ───────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# ── Misc files not needed on GitHub ──────────────────────────────────────────
+*.zip
+
+# ── Streamlit secrets (keep config.toml, ignore secrets.toml) ────────────────
+.streamlit/secrets.toml
+
+# ── Markdown files — keep only README.md ─────────────────────────────────────
+*.md
+!README.md

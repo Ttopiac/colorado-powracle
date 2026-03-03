@@ -8,7 +8,7 @@ Unlike general-purpose AI assistants (ChatGPT, Gemini, Claude), Colorado Powracl
 
 ---
 
-## Demo
+## [Demo Video](https://www.youtube.com/watch?v=9hb8qsD4CKA)
 
 [![Colorado Powracle Demo](https://img.youtube.com/vi/9hb8qsD4CKA/maxresdefault.jpg?v=2)](https://www.youtube.com/watch?v=9hb8qsD4CKA)
 

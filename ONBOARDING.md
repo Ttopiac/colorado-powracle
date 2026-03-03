@@ -53,23 +53,23 @@ These tools read the context files automatically when you open the repo. No extr
 
 ### AI chatboxes (ChatGPT, Claude.ai, Gemini, etc.)
 
-Your AI won't read the repo automatically. Choose how much context to paste based on your task:
+Your AI won't read the repo automatically. Choose how much context to paste or attach based on your task:
 
 **Option A — Full context** (new features, unfamiliar module, or first time contributing)
-1. Paste `AGENTS.md` — full architecture, rules, and gotchas
-2. Also paste the subdirectory file for the module you're working on:
+1. Paste or attach `AGENTS.md` — full architecture, rules, and gotchas
+2. Also paste or attach the subdirectory file for the module you're working on:
 
-| Working on | Also paste |
+| Working on | Also paste or attach |
 |------------|------------|
 | Adding or editing a tool | `tools/CLAUDE.md` |
 | Fetching data / API changes | `ingestion/CLAUDE.md` |
 | Database schema or queries | `db/CLAUDE.md` |
 | Agent logic or system prompt | `agent/CLAUDE.md` |
 
-3. Paste the specific file(s) you want to change and describe what you need.
+3. Paste or attach the specific file(s) you want to change and describe what you need.
 
 **Option B — Minimal context** (small edits or bug fixes where you already know the codebase)
-Paste just `CONTEXT_MIN.md` + the specific file(s) you want to change.
+Paste or attach just `CONTEXT_MIN.md` + the specific file(s) you want to change.
 
 If Option B produces wrong or inconsistent output, switch to Option A.
 

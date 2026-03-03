@@ -55,10 +55,7 @@ These tools read the context files automatically when you open the repo. No extr
 
 Your AI won't read the repo automatically. Choose how much context to paste based on your task:
 
-**Option A — Minimal (quick focused tasks)**
-Paste just `CONTEXT_MIN.md` + the specific file(s) you want to change. Good for small edits where you already know the codebase.
-
-**Option B — Full (new features or unfamiliar modules)**
+**Option A — Full context** (new features, unfamiliar module, or first time contributing)
 1. Paste `AGENTS.md` — full architecture, rules, and gotchas
 2. Also paste the subdirectory file for the module you're working on:
 
@@ -71,7 +68,10 @@ Paste just `CONTEXT_MIN.md` + the specific file(s) you want to change. Good for 
 
 3. Paste the specific file(s) you want to change and describe what you need.
 
-If Option A produces wrong or inconsistent output, switch to Option B.
+**Option B — Minimal context** (small edits or bug fixes where you already know the codebase)
+Paste just `CONTEXT_MIN.md` + the specific file(s) you want to change.
+
+If Option B produces wrong or inconsistent output, switch to Option A.
 
 ---
 

@@ -1,5 +1,7 @@
 # ⛷️ Colorado Powracle
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 **Colorado Powracle** is an AI-powered ski conditions assistant that answers real natural-language questions about Colorado ski resorts — backed by live snowpack sensors, 10 years of historical data, and real-time web search.
 
 Unlike general-purpose AI assistants (ChatGPT, Gemini, Claude), Colorado Powracle doesn't guess or hallucinate snow conditions. Every answer is grounded in actual data pulled at the moment you ask.

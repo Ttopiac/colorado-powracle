@@ -79,11 +79,6 @@ COTRIP_API_KEY=...
 - `season_summary` — resort, year, peak_depth_in, peak_swe_in, total_new_snow_in
 - `traffic_patterns` — corridor, direction, day_of_week, hour, month, is_holiday → avg_volume, stddev_volume
 
-## Resorts (19 total, organized by pass)
-- **IKON**: Steamboat (US-40), Winter Park (US-40), Copper (I-70), A-Basin (US-6), Aspen (CO-82), Eldora (CO-119)
-- **EPIC**: Breckenridge (US-9), Vail (I-70), Beaver Creek (I-70), Keystone (US-6), Crested Butte (CO-135), Telluride (CO-145)
-- **INDY**: Loveland (I-70), Wolf Creek (US-160), Monarch (US-50), Ski Cooper (US-24), Purgatory (US-550), Powderhorn (CO-65), Sunlight (CO-82)
-
 ## Module gotchas
 
 ### tools/
@@ -144,7 +139,3 @@ COTRIP_API_KEY=...
 - `CLAUDE.md` and `AGENTS.md` reflect any architectural changes
 - Relevant subdirectory `CLAUDE.md` updated if module behaviour changed
 
-## Extension roadmap
-- Phase 2 (Traffic): DONE
-- Phase 3 (Location): `tools/location_tools.py` + `OPENROUTESERVICE_API_KEY`
-- Phase 4 (UI): extend `app.py` left column only

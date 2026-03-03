@@ -39,7 +39,7 @@ You need three API keys. All have free tiers sufficient for personal use.
 |---------|---------|-----------|
 | **OpenRouter** | Routes requests to the Claude 3 Haiku LLM | [openrouter.ai](https://openrouter.ai) → Keys → Create Key |
 | **SerpAPI** | Live Google search (lift status, road conditions) | [serpapi.com](https://serpapi.com) → Dashboard → API Key |
-| **COtrip** | Live Colorado road conditions & chain laws (optional) | [data.cotrip.org](https://data.cotrip.org) → Register → My Account → API Key |
+| **COtrip** | Live Colorado road conditions & chain laws (optional) | [manage-api.cotrip.org](https://manage-api.cotrip.org/login) → Register → My Account → API Key |
 
 > COtrip is optional — if omitted, road condition questions fall back to web search automatically.
 
@@ -195,7 +195,7 @@ Type any ski-related question in plain English. The Oracle calls its tools, cons
 | [USDA NRCS SNOTEL REST API](https://wcc.sc.egov.usda.gov/awdbRestApi) | `get_current_snowpack` | Live snow depth, SWE, new snow 24/48/72h | Every 30 min |
 | SNOTEL Historical CSVs → Parquet → DuckDB | `get_snowpack_history` | 10 years of daily snowpack, monthly averages, season summaries | Static (2015–2024) |
 | SerpAPI web search | `web_search` | Lift status, forecasts, general fallback | Real-time |
-| [COtrip REST API](https://data.cotrip.org) (Colorado DOT) | `get_live_traffic` | Live road incidents, chain laws, surface conditions | Real-time |
+| [COtrip REST API](https://manage-api.cotrip.org/login) (Colorado DOT) | `get_live_traffic` | Live road incidents, chain laws, surface conditions | Real-time |
 | CDOT Historical Traffic → DuckDB | `get_best_departure_time` | 10 years of hourly traffic volumes on I-70, US-40, US-285 | Static |
 
 ---

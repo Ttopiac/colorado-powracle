@@ -1,10 +1,10 @@
 """
 Fetch live Colorado road conditions and incidents from the COTRIP data API.
 
-Requires COTRIP_API_KEY in .env (free registration at https://data.cotrip.org/).
+Requires COTRIP_API_KEY in .env (free registration at https://manage-api.cotrip.org/login).
 Falls back gracefully when no key is present — caller should use web_search instead.
 
-COTRIP API docs: https://data.cotrip.org/
+COTRIP API docs: https://manage-api.cotrip.org/login
 Endpoints used:
   GET /api/v1/incidents      — active accidents, closures, road work
   GET /api/v1/roadConditions — surface conditions, chain laws, traction advisories

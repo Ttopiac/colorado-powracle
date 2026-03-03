@@ -32,13 +32,13 @@ The repo ships with context files that explain the architecture, rules, and gotc
 
 | File | Purpose |
 |------|---------|
-| `AGENTS.md` | Full project overview, tool contracts, critical rules, module gotchas, pre-merge checklist |
-| `CONTEXT_MIN.md` | Minimal version of AGENTS.md — just the rules and gotchas, for quick chatbox paste |
-| `CLAUDE.md` | Same as AGENTS.md, extended for Claude Code users |
-| `tools/CLAUDE.md` | How to add a tool, tool contracts, routing logic |
-| `ingestion/CLAUDE.md` | Each ingestion script, API quirks, data flow |
-| `db/CLAUDE.md` | DuckDB schema, views, when to rebuild |
-| `agent/CLAUDE.md` | Agent architecture, SYSTEM_PROMPT structure, LangChain version notes |
+| [AGENTS.md](AGENTS.md) | Full project overview, tool contracts, critical rules, module gotchas, pre-merge checklist |
+| [CONTEXT_MIN.md](CONTEXT_MIN.md) | Minimal version of AGENTS.md — just the rules and gotchas, for quick chatbox paste |
+| [CLAUDE.md](CLAUDE.md) | Same as AGENTS.md, extended for Claude Code users |
+| [tools/CLAUDE.md](tools/CLAUDE.md) | How to add a tool, tool contracts, routing logic |
+| [ingestion/CLAUDE.md](ingestion/CLAUDE.md) | Each ingestion script, API quirks, data flow |
+| [db/CLAUDE.md](db/CLAUDE.md) | DuckDB schema, views, when to rebuild |
+| [agent/CLAUDE.md](agent/CLAUDE.md) | Agent architecture, SYSTEM_PROMPT structure, LangChain version notes |
 
 ---
 
@@ -48,28 +48,28 @@ The repo ships with context files that explain the architecture, rules, and gotc
 
 These tools read the context files automatically when you open the repo. No extra setup needed — your AI already knows the project rules.
 
-- **Claude Code:** reads `CLAUDE.md` at the root and in whichever subdirectory you're working in
-- **Cursor / Windsurf / others:** reads `AGENTS.md` at the root
+- **Claude Code:** reads [CLAUDE.md](CLAUDE.md) at the root and in whichever subdirectory you're working in
+- **Cursor / Windsurf / others:** reads [AGENTS.md](AGENTS.md) at the root
 
 ### AI chatboxes (ChatGPT, Claude.ai, Gemini, etc.)
 
 Your AI won't read the repo automatically. Choose how much context to paste or attach based on your task:
 
 **Option A — Full context** (new features, unfamiliar module, or first time contributing)
-1. Paste or attach `AGENTS.md` — full architecture, rules, and gotchas
+1. Paste or attach [AGENTS.md](AGENTS.md) — full architecture, rules, and gotchas
 2. Also paste or attach the subdirectory file for the module you're working on:
 
 | Working on | Also paste or attach |
 |------------|------------|
-| Adding or editing a tool | `tools/CLAUDE.md` |
-| Fetching data / API changes | `ingestion/CLAUDE.md` |
-| Database schema or queries | `db/CLAUDE.md` |
-| Agent logic or system prompt | `agent/CLAUDE.md` |
+| Adding or editing a tool | [tools/CLAUDE.md](tools/CLAUDE.md) |
+| Fetching data / API changes | [ingestion/CLAUDE.md](ingestion/CLAUDE.md) |
+| Database schema or queries | [db/CLAUDE.md](db/CLAUDE.md) |
+| Agent logic or system prompt | [agent/CLAUDE.md](agent/CLAUDE.md) |
 
 3. Paste or attach the specific file(s) you want to change and describe what you need.
 
 **Option B — Minimal context** (small edits or bug fixes where you already know the codebase)
-Paste or attach just `CONTEXT_MIN.md` + the specific file(s) you want to change.
+Paste or attach just [CONTEXT_MIN.md](CONTEXT_MIN.md) + the specific file(s) you want to change.
 
 If Option B produces wrong or inconsistent output, switch to Option A.
 
@@ -84,9 +84,9 @@ Key things it checks:
 - At least 2 canonical test questions work end-to-end
 - No `.env`, `data/`, `*.duckdb`, or `*.parquet` files staged
 - If you added a tool — it's registered in `agent.py`, `prompts.py`, and the docs
-- If you changed the DB schema — `db/setup.py` and `db/CLAUDE.md` are updated
+- If you changed the DB schema — `db/setup.py` and [db/CLAUDE.md](db/CLAUDE.md) are updated
 
-**AI agents:** the pre-merge checklist is also in `AGENTS.md`. If you ask your AI to open a PR, it should run through the checklist automatically before doing so.
+**AI agents:** the pre-merge checklist is also in [AGENTS.md](AGENTS.md). If you ask your AI to open a PR, it should run through the checklist automatically before doing so.
 
 ---
 
@@ -97,4 +97,4 @@ Key things it checks:
 3. **Never commit secrets.** `.env` is gitignored — keep it that way.
 4. **Never run `db/setup.py` mid-session.** It drops and recreates all tables.
 5. **Every change is additive.** Do not rewrite existing modules — extend them.
-6. **Update the docs alongside the code.** If you change architecture, update `CLAUDE.md`, `AGENTS.md`, and the relevant subdirectory `CLAUDE.md` in the same PR.
+6. **Update the docs alongside the code.** If you change architecture, update [CLAUDE.md](CLAUDE.md), [AGENTS.md](AGENTS.md), and the relevant subdirectory `CLAUDE.md` in the same PR.

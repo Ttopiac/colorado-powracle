@@ -33,7 +33,8 @@ The repo ships with context files that explain the architecture, rules, and gotc
 | File | Purpose |
 |------|---------|
 | `AGENTS.md` | Full project overview, tool contracts, critical rules, module gotchas, pre-merge checklist |
-| `CLAUDE.md` | Same as above, extended for Claude Code users |
+| `CONTEXT_MIN.md` | Minimal version of AGENTS.md — just the rules and gotchas, for quick chatbox paste |
+| `CLAUDE.md` | Same as AGENTS.md, extended for Claude Code users |
 | `tools/CLAUDE.md` | How to add a tool, tool contracts, routing logic |
 | `ingestion/CLAUDE.md` | Each ingestion script, API quirks, data flow |
 | `db/CLAUDE.md` | DuckDB schema, views, when to rebuild |

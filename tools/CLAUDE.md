@@ -29,6 +29,14 @@ Each file wraps one or more data-fetching functions as LangChain `Tool` objects 
 | `get_live_traffic` | `live_traffic_tool` | Corridor name (I-70, US-40, US-285, US-550) | Incidents + road conditions string from COtrip API |
 | `get_best_departure_time` | `best_departure_tool` | Natural language (e.g., "I-70 Saturday in January") | Best 3 and worst 3 departure windows with volume numbers |
 
+### forecast_tools.py
+| Tool name | LangChain object | Input | Output |
+|-----------|-----------------|-------|--------|
+| `get_snow_forecast` | `snow_forecast_tool` | Resort name (fuzzy matched) | 7-day daily snowfall in inches with weekend days highlighted and weekend total |
+
+**Source:** Open-Meteo API (`https://api.open-meteo.com/v1/forecast`) — no API key required.
+**Snowfall conversion:** Open-Meteo returns cm; multiplied by 0.3937 to convert to inches.
+
 **`get_best_departure_time` parsing:**
 - Extracts day-of-week, month, holiday flag from free text
 - Determines direction: Saturday → westbound (to resorts), Sunday → eastbound (returning)
@@ -40,7 +48,7 @@ Each file wraps one or more data-fetching functions as LangChain `Tool` objects 
 2. Define a plain Python function that takes a string and returns a string.
 3. Wrap it:
    ```python
-   from langchain.tools import Tool
+   from langchain_classic.tools import Tool
 
    my_tool = Tool(
        name="tool_name",           # agent uses this to select the tool

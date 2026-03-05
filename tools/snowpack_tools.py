@@ -80,6 +80,13 @@ def _snowpack_history(query: str) -> str:
     try:
         con = duckdb.connect(DB_PATH, read_only=True)
 
+        # Detect resort name for filtered queries
+        resort_match = None
+        for resort in RESORT_STATIONS.keys():
+            if resort.lower() in query:
+                resort_match = resort
+                break
+
         if any(w in query for w in ["consistent", "reliable", "every year", "best resort overall"]):
             sql = """
                 SELECT resort,
@@ -91,9 +98,10 @@ def _snowpack_history(query: str) -> str:
                 ORDER BY consistency_stddev ASC
             """
         elif any(w in query for w in ["above average", "below average", "this year",
-                                      "this season", "compared to"]):
+                                      "this season", "season compare"]):
             from datetime import date
             this_year = date.today().year
+            resort_clause = f"AND s.resort = '{resort_match}'" if resort_match else ""
             sql = f"""
                 SELECT s.resort,
                        s.year,
@@ -105,16 +113,33 @@ def _snowpack_history(query: str) -> str:
                     SELECT resort, ROUND(AVG(peak_depth_in), 1) AS avg_peak
                     FROM season_summary GROUP BY resort
                 ) h ON s.resort = h.resort
-                WHERE s.year = {this_year}
+                WHERE s.year = {this_year} {resort_clause}
                 ORDER BY diff_from_avg_in DESC
+            """
+        elif any(w in query for w in ["same time", "this month", "time of year",
+                                      "compared to", "normal for", "last year",
+                                      "year ago", "typical"]):
+            # Month-specific: compare current month's historical averages
+            from datetime import date
+            this_month = date.today().month
+            resort_clause = f"AND resort = '{resort_match}'" if resort_match else ""
+            sql = f"""
+                SELECT resort, month,
+                       ROUND(avg_depth_in, 1)        AS historical_avg_depth_in,
+                       ROUND(avg_daily_new_snow, 1)  AS historical_avg_daily_new_in
+                FROM monthly_averages
+                WHERE month = {this_month} {resort_clause}
+                ORDER BY historical_avg_depth_in DESC
             """
         else:
             # Default: monthly average new snow — useful for "best month to ski X"
-            sql = """
+            resort_clause = f"WHERE resort = '{resort_match}'" if resort_match else ""
+            sql = f"""
                 SELECT resort, month,
                        avg_depth_in,
                        avg_daily_new_snow AS avg_daily_new_in
                 FROM monthly_averages
+                {resort_clause}
                 ORDER BY avg_daily_new_snow DESC
                 LIMIT 25
             """
@@ -133,7 +158,8 @@ historical_snowpack_tool = Tool(
     description=(
         "Queries 10 years of historical SNOTEL snowpack data stored in DuckDB. "
         "Use for: which resort historically gets the most snow, is this season above/below average, "
-        "which resort is most consistent year over year, best month to ski. "
-        "Input: a natural language question about historical snow patterns."
+        "which resort is most consistent year over year, best month to ski, "
+        "how does current snowpack compare to typical/normal/last year for this time of year. "
+        "Input: a natural language question about historical snow patterns (resort name optional)."
     ),
 )

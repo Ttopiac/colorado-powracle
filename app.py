@@ -5,6 +5,7 @@ Run: streamlit run app.py  (from project root, with conda env active)
 
 from agent.agent import build_agent
 from ingestion.snotel_live import fetch_current_snowpack
+from ingestion.openmeteo_forecast import get_weekend_snowfall
 from resorts import RESORT_STATIONS
 import plotly.graph_objects as go
 import streamlit as st
@@ -67,7 +68,23 @@ def load_conditions():
     return out
 
 
+@st.cache_data(ttl=10800)
+def load_forecasts():
+    """Weekend snowfall forecast for all resorts (3-hour cache)."""
+    out = {}
+    for resort, info in RESORT_STATIONS.items():
+        if not info.get("lat"):
+            out[resort] = None
+            continue
+        try:
+            out[resort] = get_weekend_snowfall(info["lat"], info["lon"])
+        except Exception:
+            out[resort] = None
+    return out
+
+
 conditions = load_conditions()
+forecasts = load_forecasts()
 
 # ── Pass filter helpers ────────────────────────────────────────────────────────
 
@@ -344,7 +361,7 @@ with col_left:
     st.markdown("---")
     st.markdown("#### ❄️ Live Conditions")
 
-    _cards = st.container(height=520, border=False)
+    _cards = st.container(border=False)
 
     if sort_by == "🤖 AI Pick":
         if "ai_pick_ranking" in st.session_state:
@@ -400,15 +417,79 @@ with col_left:
 # ── RIGHT: chat ───────────────────────────────────────────────────────────────
 
 with col_right:
-    st.markdown("### 💬 Ask the Oracle")
+    st.markdown("### 💬 Ask the Powracle")
     st.caption(
         "Ask me where to ski, which resort has the best snow, "
         "or how this season compares to average.")
 
+    prompt = st.chat_input("Where should I ski this weekend?")
+
     _chat_container = st.container(height=520, border=False)
 
     with _chat_container:
-        if not st.session_state.messages:
+        # New exchange renders at the top immediately
+        if prompt:
+            st.session_state.messages.append({"role": "user", "content": prompt})
+
+            # Build live conditions snapshot for all visible resorts
+            _cond_snapshot = "\n".join(
+                f"  - {r}: {conditions[r].get('new_snow_72h', 0):.0f}\" new (72h), "
+                f"{conditions[r].get('new_snow_48h', 0):.0f}\" new (48h), "
+                f"{conditions[r].get('new_snow_24h', 0):.0f}\" new (24h), "
+                f"{conditions[r].get('snow_depth_in', 0):.0f}\" base"
+                if conditions.get(r) else f"  - {r}: no live data"
+                for r in RESORT_STATIONS
+            )
+            _forecast_snapshot = "\n".join(
+                f"  - {r}: Sat {forecasts[r]['saturday_snow_in']:.1f}\" / "
+                f"Sun {forecasts[r]['sunday_snow_in']:.1f}\" / "
+                f"weekend total {forecasts[r]['weekend_total_in']:.1f}\""
+                if forecasts.get(r) else f"  - {r}: no forecast"
+                for r in RESORT_STATIONS
+            )
+            _context = (
+                f"[Live snowpack for all resorts right now:\n{_cond_snapshot}]\n\n"
+                f"[Weekend snowfall forecast (Open-Meteo):\n{_forecast_snapshot}]\n\n"
+            )
+
+            if selected_passes and "All" not in selected_passes:
+                pass_str = " and ".join(selected_passes)
+                pass_resorts = [r for r in RESORT_STATIONS
+                                if _pass_filter(r, selected_passes)]
+                agent_prompt = (
+                    _context
+                    + f"[User context: I have a {pass_str} Pass. "
+                    f"Only recommend resorts on my pass: {', '.join(pass_resorts)}.]\n\n"
+                    + prompt
+                )
+            else:
+                agent_prompt = _context + prompt
+
+            with st.chat_message("user"):
+                st.markdown(prompt)
+            with st.chat_message("assistant"):
+                with st.spinner("Checking the snowpack..."):
+                    response = st.session_state.agent.run(agent_prompt)
+                st.markdown(response)
+
+            st.session_state.messages.append({"role": "assistant", "content": response})
+
+            # Update AI Pick ranking based on resort mention order in agent response
+            _lower = response.lower()
+            _mentioned = sorted(
+                [(r, _lower.index(r.lower())) for r in RESORT_STATIONS if r.lower() in _lower],
+                key=lambda x: x[1]
+            )
+            _ranked = [r for r, _ in _mentioned]
+            for r in vis_names:
+                if r not in _ranked:
+                    _ranked.append(r)
+            st.session_state["ai_pick_ranking"] = _ranked
+
+        # Previous messages shown below in reverse (newest-first)
+        _history = st.session_state.messages[:-2] if prompt else st.session_state.messages
+
+        if not _history and not prompt:
             with st.chat_message("assistant"):
                 st.markdown(
                     "Hey! I can tell you where the powder is right now, "
@@ -416,59 +497,13 @@ with col_right:
                     "this season is above or below average. What do you want to know?"
                 )
 
-        for msg in st.session_state.messages:
-            with st.chat_message(msg["role"]):
-                st.markdown(msg["content"])
+        _pairs = list(zip(_history[0::2], _history[1::2]))
+        for user_msg, asst_msg in reversed(_pairs):
+            with st.chat_message(user_msg["role"]):
+                st.markdown(user_msg["content"])
+            with st.chat_message(asst_msg["role"]):
+                st.markdown(asst_msg["content"])
 
-    if prompt := st.chat_input("Where should I ski this weekend?"):
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
-
-        # Build live conditions snapshot for all visible resorts
-        _cond_snapshot = "\n".join(
-            f"  - {r}: {conditions[r].get('new_snow_72h', 0):.0f}\" new (72h), "
-            f"{conditions[r].get('new_snow_48h', 0):.0f}\" new (48h), "
-            f"{conditions[r].get('new_snow_24h', 0):.0f}\" new (24h), "
-            f"{conditions[r].get('snow_depth_in', 0):.0f}\" base"
-            if conditions.get(r) else f"  - {r}: no live data"
-            for r in RESORT_STATIONS
-        )
-        _context = f"[Live snowpack for all resorts right now:\n{_cond_snapshot}]\n\n"
-
-        if selected_passes and "All" not in selected_passes:
-            pass_str = " and ".join(selected_passes)
-            pass_resorts = [r for r in RESORT_STATIONS
-                            if _pass_filter(r, selected_passes)]
-            agent_prompt = (
-                _context
-                + f"[User context: I have a {pass_str} Pass. "
-                f"Only recommend resorts on my pass: {', '.join(pass_resorts)}.]\n\n"
-                + prompt
-            )
-        else:
-            agent_prompt = _context + prompt
-
-        with st.chat_message("assistant"):
-            with st.spinner("Checking the snowpack..."):
-                response = st.session_state.agent.run(agent_prompt)
-            st.markdown(response)
-
-        st.session_state.messages.append(
-            {"role": "assistant", "content": response})
-
-        # Update AI Pick ranking based on resort mention order in agent response
-        _lower = response.lower()
-        _mentioned = sorted(
-            [(r, _lower.index(r.lower())) for r in RESORT_STATIONS if r.lower() in _lower],
-            key=lambda x: x[1]
-        )
-        _ranked = [r for r, _ in _mentioned]
-        for r in vis_names:
-            if r not in _ranked:
-                _ranked.append(r)
-        st.session_state["ai_pick_ranking"] = _ranked
-
-        # Rerun so the left column reflects the new ranking immediately
-        if sort_by == "🤖 AI Pick":
-            st.rerun()
+    # Rerun so the left column reflects the new ranking immediately
+    if prompt and sort_by == "🤖 AI Pick":
+        st.rerun()

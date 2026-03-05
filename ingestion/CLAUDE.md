@@ -78,13 +78,29 @@ PYTHONPATH=/Users/chli4608/Repositories/colorado_powder_oracle \
   /opt/anaconda3/envs/powracle/bin/python ingestion/cdot_historical.py
 ```
 
+---
+
+### openmeteo_forecast.py — 7-day snowfall forecast
+**Entry points:**
+- `fetch_snow_forecast(lat, lon, days=7) -> list[dict]` — returns daily dicts: `date`, `snowfall_in`, `temp_max_f`, `temp_min_f`
+- `get_weekend_snowfall(lat, lon) -> dict` — returns `saturday`, `sunday`, `saturday_snow_in`, `sunday_snow_in`, `weekend_total_in`
+
+Hits the Open-Meteo API (`https://api.open-meteo.com/v1/forecast`). **No API key required.**
+
+**Unit conversion:** Open-Meteo returns snowfall in cm. Multiply by 0.3937 to get inches.
+
+**Timezone:** All forecasts use `America/Denver` so Saturday/Sunday detection matches Colorado ski dates.
+
+---
+
 ## Common path pattern
 All scripts resolve paths via `Path(__file__).resolve().parent.parent` to locate the project root. Do not change to relative paths — scripts must work from any CWD.
 
 ## Data flow summary
 ```
-snotel_historical.py → data/raw/snotel/*.csv ─┐
-cdot_historical.py   → data/raw/traffic/*.csv ─┤→ db/setup.py → powder_oracle.duckdb
-snotel_live.py       → (direct API, no file)  ─┘   (+ *.parquet intermediates)
-cotrip_live.py       → (direct API, no file)
+snotel_historical.py  → data/raw/snotel/*.csv ─┐
+cdot_historical.py    → data/raw/traffic/*.csv ─┤→ db/setup.py → powder_oracle.duckdb
+snotel_live.py        → (direct API, no file)  ─┘   (+ *.parquet intermediates)
+cotrip_live.py        → (direct API, no file)
+openmeteo_forecast.py → (direct API, no file)
 ```

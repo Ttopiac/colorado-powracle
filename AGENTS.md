@@ -24,17 +24,19 @@ colorado_powder_oracle/
 ├── app.py              # Streamlit UI (509 lines) — left panel conditions, right panel chat
 ├── resorts.py          # RESORT_STATIONS dict: 19 resorts, station IDs, corridors, pass info
 ├── agent/
-│   ├── agent.py        # build_agent() — assembles LLM + 5 tools
+│   ├── agent.py        # build_agent() — assembles LLM + 6 tools
 │   └── prompts.py      # SYSTEM_PROMPT — resort knowledge, traffic patterns, decision logic
 ├── tools/
 │   ├── snowpack_tools.py   # get_current_snowpack, get_snowpack_history
 │   ├── search_tools.py     # web_search (SerpAPI)
-│   └── traffic_tools.py    # get_live_traffic, get_best_departure_time
+│   ├── traffic_tools.py    # get_live_traffic, get_best_departure_time
+│   └── forecast_tools.py   # get_snow_forecast (Open-Meteo)
 ├── ingestion/
 │   ├── snotel_live.py      # fetch_current_snowpack() — SNOTEL REST API
 │   ├── snotel_historical.py # one-time bulk CSV download (2015–today)
 │   ├── cotrip_live.py      # fetch_incidents(), summarise_corridor() — COtrip API
-│   └── cdot_historical.py  # synthetic 10yr hourly traffic data generator
+│   ├── cdot_historical.py  # synthetic 10yr hourly traffic data generator
+│   └── openmeteo_forecast.py # fetch_snow_forecast(), get_weekend_snowfall() — Open-Meteo
 ├── db/
 │   └── setup.py        # DuckDB init: loads parquets, creates tables + views
 ├── data/               # gitignored — regenerate locally
@@ -56,7 +58,7 @@ SERPAPI_API_KEY=...
 COTRIP_API_KEY=...
 ```
 
-## The 5 agent tools
+## The 6 agent tools
 | Tool | Source | Returns |
 |------|--------|---------|
 | `get_current_snowpack` | SNOTEL REST API (live) | Base depth, SWE, new snow 24/48/72h |
@@ -64,6 +66,7 @@ COTRIP_API_KEY=...
 | `web_search` | SerpAPI | Lift status, road conditions, forecasts |
 | `get_live_traffic` | COtrip REST API (live) | Incidents, chain laws, corridor conditions |
 | `get_best_departure_time` | DuckDB `traffic_patterns` view | Best/worst departure windows by corridor + day |
+| `get_snow_forecast` | Open-Meteo API (no key required) | 7-day snowfall forecast, weekend totals highlighted |
 
 ## Critical rules — do not break these
 

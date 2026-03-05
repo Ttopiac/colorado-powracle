@@ -10,6 +10,7 @@ from langchain_openai import ChatOpenAI
 from tools.snowpack_tools import current_snowpack_tool, historical_snowpack_tool
 from tools.search_tools import web_search_tool
 from tools.traffic_tools import live_traffic_tool, best_departure_tool
+from tools.forecast_tools import snow_forecast_tool
 from agent.prompts import SYSTEM_PROMPT
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
@@ -29,6 +30,7 @@ def build_agent(verbose: bool = False):
             web_search_tool,
             live_traffic_tool,
             best_departure_tool,
+            snow_forecast_tool,
             # Phase 3: append location_tools here
         ],
         llm=llm,

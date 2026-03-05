@@ -48,7 +48,7 @@ Required keys: `OPENROUTER_API_KEY`, `SERPAPI_API_KEY`, `COTRIP_API_KEY`
 All Python must run under `/opt/anaconda3/envs/powracle/bin/python`.
 Do NOT use system Python or base Anaconda.
 
-## The 5 tools
+## The 6 tools
 | Tool | Source | Description |
 |------|--------|-------------|
 | `get_current_snowpack` | SNOTEL REST API (live) | Snow depth, SWE, new snow 24/48/72h |
@@ -56,6 +56,7 @@ Do NOT use system Python or base Anaconda.
 | `web_search` | SerpAPI | Lift status, road conditions, forecasts |
 | `get_live_traffic` | COtrip REST API (live) | Road incidents, chain laws, corridor conditions |
 | `get_best_departure_time` | DuckDB `traffic_patterns` view (10yr historical) | Best departure windows by corridor and day of week |
+| `get_snow_forecast` | Open-Meteo API (no key required) | 7-day snowfall forecast in inches, weekend totals highlighted |
 
 ## UI details
 - Map: Plotly Scattermapbox with ESRI World Topo Map tiles
@@ -104,4 +105,6 @@ Where should I ski this weekend for powder?
 I want to avoid I-70 — which powder resort should I consider?
 What is the current road conditions on I-70 heading to the mountains?
 When is the best time to leave Denver on a Saturday to beat traffic to Vail?
+Which resort is forecasted to get the most snow this weekend?
+How much snow is expected at Wolf Creek this Saturday?
 ```

@@ -4,9 +4,7 @@
 - `agent.py` — `build_agent()` factory function
 - `prompts.py` — `SYSTEM_PROMPT` string
 
-## agent.py
-
-### build_agent(verbose=False)
+## agent.py — build_agent(verbose=False)
 Returns a LangChain `AgentExecutor` using the `zero-shot-react-description` strategy.
 
 ```python
@@ -28,6 +26,7 @@ llm = ChatOpenAI(
 3. `web_search_tool`
 4. `live_traffic_tool`
 5. `best_departure_tool`
+6. `snow_forecast_tool`
 
 ### Adding a tool
 ```python

@@ -405,9 +405,9 @@ with col_left:
             )
             with st.spinner("🤖 Personalising resort ranking..."):
                 try:
-                    _resp = _get_rank_llm().predict(_prompt)
+                    _resp = _get_rank_llm().invoke(_prompt).content
                     _lines = [
-                        ln.strip().lstrip("0123456789.-) ").strip()
+                        ln.strip().lstrip("0123456789.*-) ").strip()
                         for ln in _resp.strip().split("\n") if ln.strip()
                     ]
                     _ranked = [ln for ln in _lines if ln in vis_names]
@@ -415,8 +415,13 @@ with col_left:
                         if r not in _ranked:
                             _ranked.append(r)
                     st.session_state[_rank_key] = _ranked
-                except Exception:
-                    st.session_state[_rank_key] = list(vis_names)
+                except Exception as e:
+                    st.warning(f"AI Pick unavailable: {e}. Falling back to fresh snow order.")
+                    _snow_fallback = sorted(
+                        vis_names,
+                        key=lambda r: -(visible[r].get("new_snow_72h", 0) if visible[r] else 0)
+                    )
+                    st.session_state[_rank_key] = _snow_fallback
 
         _rank_map = {r: i for i, r in enumerate(st.session_state[_rank_key])}
         _ordered = sorted(

@@ -344,6 +344,8 @@ with col_left:
     st.markdown("---")
     st.markdown("#### ❄️ Live Conditions")
 
+    _cards = st.container(height=520, border=False)
+
     if sort_by == "🤖 AI Pick":
         if "ai_pick_ranking" in st.session_state:
             _rank_map = {r: i for i, r in enumerate(st.session_state["ai_pick_ranking"])}
@@ -369,30 +371,31 @@ with col_left:
                 return -(d.get("new_snow_72h", 0) if d else 0)
         _ordered = sorted(visible.items(), key=_sort_key)
 
-    for resort, d in _ordered:
-        badges = " ".join(_PASS_BADGE[p] for p in _resort_passes(resort))
-        dist = _haversine_miles(
-            user_lat, user_lon,
-            RESORT_STATIONS[resort]["lat"], RESORT_STATIONS[resort]["lon"]
-        )
-        dist_tag = f'<span style="color:#5a8fb5;font-size:0.82em"> · {dist:.0f} mi</span>'
+    with _cards:
+        for resort, d in _ordered:
+            badges = " ".join(_PASS_BADGE[p] for p in _resort_passes(resort))
+            dist = _haversine_miles(
+                user_lat, user_lon,
+                RESORT_STATIONS[resort]["lat"], RESORT_STATIONS[resort]["lon"]
+            )
+            dist_tag = f'<span style="color:#5a8fb5;font-size:0.82em"> · {dist:.0f} mi</span>'
 
-        if d is None:
+            if d is None:
+                st.markdown(
+                    f"⬜ **{resort}** {badges}{dist_tag}  \n"
+                    f'<span style="color:#5a8fb5;font-size:0.88em">no SNOTEL — check resort site</span>',
+                    unsafe_allow_html=True)
+                continue
+
+            new72 = d.get("new_snow_72h", 0)
+            base = d.get("snow_depth_in", 0)
+            _val = base if _use_base_map else new72
+            _t = (_val / _CMAX) if _CMAX > 0 else 0
+            icon = f'<span style="color:{_blues_color(_t)};font-size:1.2em;vertical-align:middle">●</span>'
             st.markdown(
-                f"⬜ **{resort}** {badges}{dist_tag}  \n"
-                f'<span style="color:#5a8fb5;font-size:0.88em">no SNOTEL — check resort site</span>',
+                f"{icon} **{resort}** {badges}{dist_tag}  \n"
+                f'<span style="font-size:0.88em">{new72:.0f}" new (72h) · {base:.0f}" base</span>',
                 unsafe_allow_html=True)
-            continue
-
-        new72 = d.get("new_snow_72h", 0)
-        base = d.get("snow_depth_in", 0)
-        _val = base if _use_base_map else new72
-        _t = (_val / _CMAX) if _CMAX > 0 else 0
-        icon = f'<span style="color:{_blues_color(_t)};font-size:1.2em;vertical-align:middle">●</span>'
-        st.markdown(
-            f"{icon} **{resort}** {badges}{dist_tag}  \n"
-            f'<span style="font-size:0.88em">{new72:.0f}" new (72h) · {base:.0f}" base</span>',
-            unsafe_allow_html=True)
 
 # ── RIGHT: chat ───────────────────────────────────────────────────────────────
 
@@ -402,17 +405,20 @@ with col_right:
         "Ask me where to ski, which resort has the best snow, "
         "or how this season compares to average.")
 
-    if not st.session_state.messages:
-        with st.chat_message("assistant"):
-            st.markdown(
-                "Hey! I can tell you where the powder is right now, "
-                "which resorts historically get the most snow, and whether "
-                "this season is above or below average. What do you want to know?"
-            )
+    _chat_container = st.container(height=520, border=False)
 
-    for msg in st.session_state.messages:
-        with st.chat_message(msg["role"]):
-            st.markdown(msg["content"])
+    with _chat_container:
+        if not st.session_state.messages:
+            with st.chat_message("assistant"):
+                st.markdown(
+                    "Hey! I can tell you where the powder is right now, "
+                    "which resorts historically get the most snow, and whether "
+                    "this season is above or below average. What do you want to know?"
+                )
+
+        for msg in st.session_state.messages:
+            with st.chat_message(msg["role"]):
+                st.markdown(msg["content"])
 
     if prompt := st.chat_input("Where should I ski this weekend?"):
         st.session_state.messages.append({"role": "user", "content": prompt})

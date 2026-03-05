@@ -6,12 +6,12 @@ Endpoints used:
   GET /v1/forecast — daily snowfall_sum, temperature_2m_max, temperature_2m_min
 Snowfall is returned in cm and converted to inches here.
 
-Model: HRRR (High-Resolution Rapid Refresh, NOAA) at 3km grid — best available
-free model for Colorado mountain terrain. Falls back to Open-Meteo best_match
-if HRRR data is unavailable for a coordinate.
+Model: tries HRRR (High-Resolution Rapid Refresh, NOAA) at 3km grid first for
+best mountain accuracy. HRRR only supports ~48h, so if it returns an error
+(e.g. forecast_days=7), falls back to Open-Meteo best_match automatically.
 
-Note: even HRRR forecasts will differ from specialized services like OpenSnow,
-which apply expert meteorologist post-processing on top of the model output.
+Note: forecasts will differ from specialized services like OpenSnow, which apply
+expert meteorologist post-processing on top of model output.
 Treat these numbers as model estimates, not guarantees.
 """
 
@@ -25,18 +25,22 @@ def fetch_snow_forecast(lat: float, lon: float, days: int = 7) -> list[dict]:
     """
     Returns daily snowfall forecast for the given coordinates.
     Snowfall in inches, temperatures in °F.
-    Uses HRRR (3km resolution) for better mountain accuracy.
+    Tries HRRR (3km resolution) first; falls back to Open-Meteo best_match if unavailable.
     """
-    params = {
+    base_params = {
         "latitude": lat,
         "longitude": lon,
         "daily": "snowfall_sum,temperature_2m_max,temperature_2m_min",
         "temperature_unit": "fahrenheit",
         "timezone": "America/Denver",
         "forecast_days": days,
-        "models": "hrrr",
     }
-    r = requests.get(OPENMETEO_URL, params=params, timeout=10)
+
+    # Try HRRR first (3km resolution, better for mountain terrain)
+    r = requests.get(OPENMETEO_URL, params={**base_params, "models": "hrrr"}, timeout=10)
+    if not r.ok:
+        # HRRR only covers ~48h — fall back to Open-Meteo best_match for 7-day window
+        r = requests.get(OPENMETEO_URL, params=base_params, timeout=10)
     r.raise_for_status()
     data = r.json()["daily"]
 

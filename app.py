@@ -3,8 +3,9 @@ Colorado Powracle — Streamlit web app.
 Run: streamlit run app.py  (from project root, with conda env active)
 """
 
+from concurrent.futures import ThreadPoolExecutor as _TPE
 from agent.agent import build_agent
-from ingestion.snotel_live import fetch_current_snowpack
+from ingestion.snotel_live import fetch_current_snowpack, fetch_all_snowpack
 from ingestion.openmeteo_forecast import get_weekend_snowfall
 from resorts import RESORT_STATIONS
 import plotly.graph_objects as go
@@ -12,6 +13,8 @@ import streamlit as st
 import sys
 import os
 import math
+import re
+import ast
 
 # Ensure project root is on sys.path so package imports work when running via streamlit
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -51,40 +54,49 @@ if "agent" not in st.session_state:
     st.session_state.agent = build_agent(verbose=True)
     st.session_state.messages = []
 
-# ── Live conditions (refresh every 30 min) ────────────────────────────────────
+# ── Cache functions (defined here, called after page skeleton renders) ─────────
 
 
 @st.cache_data(ttl=1800)
 def load_conditions():
-    out = {}
+    """Single batch SNOTEL call for all stations — ~10x faster than per-resort calls."""
+    # Multiple resorts can share a station; map triplet → list of resorts
+    station_to_resorts: dict[str, list[str]] = {}
     for resort, info in RESORT_STATIONS.items():
-        if not info.get("station_id"):
-            out[resort] = None   # no SNOTEL — shown differently in sidebar
-            continue
-        try:
-            out[resort] = fetch_current_snowpack(info["station_id"])
-        except Exception:
-            out[resort] = None
+        sid = info.get("station_id")
+        if sid:
+            station_to_resorts.setdefault(sid, []).append(resort)
+
+    batch = fetch_all_snowpack(list(station_to_resorts.keys()))
+    out = {resort: None for resort in RESORT_STATIONS}
+    for triplet, data in batch.items():
+        for resort in station_to_resorts.get(triplet, []):
+            out[resort] = data
     return out
 
 
 @st.cache_data(ttl=10800)
 def load_forecasts():
-    """Weekend snowfall forecast for all resorts (3-hour cache)."""
-    out = {}
-    for resort, info in RESORT_STATIONS.items():
+    """Weekend snowfall forecast for all resorts — parallel Open-Meteo calls."""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    def _fetch(resort, info):
         if not info.get("lat"):
-            out[resort] = None
-            continue
+            return resort, None
         try:
-            out[resort] = get_weekend_snowfall(info["lat"], info["lon"])
+            return resort, get_weekend_snowfall(info["lat"], info["lon"])
         except Exception:
-            out[resort] = None
+            return resort, None
+
+    out = {}
+    with ThreadPoolExecutor(max_workers=10) as pool:
+        futures = {pool.submit(_fetch, r, i): r for r,
+                   i in RESORT_STATIONS.items()}
+        for f in as_completed(futures):
+            resort, data = f.result()
+            out[resort] = data
     return out
 
-
-conditions = load_conditions()
-forecasts = load_forecasts()
 
 # ── Pass filter helpers ────────────────────────────────────────────────────────
 
@@ -180,8 +192,7 @@ _SNOW_CS = [
 ]
 
 
-
-# ── Seed session state so map expander can read widget values on first load ───
+# ── Seed session state so widgets work on first load ──────────────────────────
 
 if "pass_filter" not in st.session_state:
     st.session_state.pass_filter = ["All"]
@@ -190,148 +201,21 @@ if "start_city" not in st.session_state:
 if "sort_by" not in st.session_state:
     st.session_state.sort_by = "🌨️ Fresh Snow"
 
+# Snapshot widget values before widget rendering (drives map/ordering logic)
 selected_passes = st.session_state.pass_filter or ["All"]
 city_name = st.session_state.start_city
 sort_by = st.session_state.sort_by
 user_lat, user_lon = _STARTING_CITIES[city_name]
 
-visible = {r: d for r, d in conditions.items() if _pass_filter(r,
-                                                               selected_passes)}
-vis_names = list(visible.keys())
+# ── Map placeholder — renders in position now, fills in after data loads ───────
 
-_use_base_map = sort_by == "🏔️ Base Snow"
-_map_field = "snow_depth_in" if _use_base_map else "new_snow_72h"
-_map_label = "Base depth (in)" if _use_base_map else "72h snow (in)"
-_map_floor = 30 if _use_base_map else 6
-_map_scale = 0.2 if _use_base_map else 2
-
-_all_map_vals = [visible[r].get(_map_field, 0) if visible[r] else 0
-                 for r in vis_names]
-_CMIN = 0
-_CMAX = max(max(_all_map_vals, default=0), _map_floor)
-
-# ── Full-width collapsible map ────────────────────────────────────────────────
-
-with st.expander("🗺️ Show Resort Map", expanded=False):
-    fig = go.Figure()
-
-    # Precompute per-pass data once, reused across both render loops
-    _pass_data = {}
-    for pass_name, style in _PASS_STYLE.items():
-        p_resorts = [r for r in vis_names
-                     if pass_name in RESORT_STATIONS[r].get("pass", [])]
-        if not p_resorts:
-            continue
-        p_snows = [visible[r].get("new_snow_72h", 0)
-                   if visible[r] else 0 for r in p_resorts]
-        p_bases = [visible[r].get("snow_depth_in", 0)
-                   if visible[r] else 0 for r in p_resorts]
-        p_map_vals = [p_bases[i] if _use_base_map else p_snows[i]
-                      for i in range(len(p_resorts))]
-        p_dists = [_haversine_miles(user_lat, user_lon,
-                                    RESORT_STATIONS[r]["lat"], RESORT_STATIONS[r]["lon"])
-                   for r in p_resorts]
-        p_texts = [
-            (f"<b>{r}</b>  [{pass_name}]<br>"
-             f"❄ New 72h: {p_snows[i]:.0f}\"  ·  Base: {p_bases[i]:.0f}\"<br>"
-             f"📍 {p_dists[i]:.0f} mi from {city_name}")
-            for i, r in enumerate(p_resorts)
-        ]
-        p_sizes = [max(10, min(36, v * _map_scale + 10)) for v in p_map_vals]
-        _pass_data[pass_name] = dict(
-            resorts=p_resorts, map_vals=p_map_vals,
-            texts=p_texts, sizes=p_sizes, style=style,
-        )
-
-    # Layer 1 — pass-colored halos (rendered first, sit underneath)
-    for pass_name, d in _pass_data.items():
-        fig.add_trace(go.Scattermapbox(
-            lat=[RESORT_STATIONS[r]["lat"] for r in d["resorts"]],
-            lon=[RESORT_STATIONS[r]["lon"] for r in d["resorts"]],
-            mode="markers",
-            name=pass_name,
-            hoverinfo="skip",
-            marker=dict(
-                size=[min(s + 12, 48) for s in d["sizes"]],
-                color=d["style"]["border"],
-                opacity=0.55,
-            ),
-        ))
-
-    # Layer 2 — snow-level colorscale fill (rendered on top, carries hover + colorbar)
-    first_colorbar = True
-    for pass_name, d in _pass_data.items():
-        colorbar_cfg = dict(
-            title=dict(text=_map_label, font=dict(color="#0d1b2e", size=11)),
-            thickness=12, len=0.55,
-            tickfont=dict(color="#0d1b2e", size=10),
-            bgcolor="rgba(220,238,255,0.92)",
-            bordercolor="#90b8d8",
-            borderwidth=1,
-        ) if first_colorbar else None
-        fig.add_trace(go.Scattermapbox(
-            lat=[RESORT_STATIONS[r]["lat"] for r in d["resorts"]],
-            lon=[RESORT_STATIONS[r]["lon"] for r in d["resorts"]],
-            text=d["texts"],
-            hoverinfo="text",
-            mode="markers",
-            showlegend=False,
-            marker=dict(
-                size=d["sizes"],
-                color=d["map_vals"],
-                colorscale=_SNOW_CS,
-                cmin=_CMIN, cmax=_CMAX,
-                showscale=first_colorbar,
-                colorbar=colorbar_cfg,
-                opacity=0.95,
-            ),
-        ))
-        first_colorbar = False
-
-    fig.add_trace(go.Scattermapbox(
-        lat=[user_lat], lon=[user_lon],
-        mode="markers+text",
-        text=[f"  {city_name}"],
-        textposition="bottom right",
-        textfont=dict(color="#b83200", size=12, family="Arial Black"),
-        hovertext=f"📍 {city_name}",
-        hoverinfo="text",
-        marker=dict(size=18, color="#e03c00"),
-        name="📍 You",
-        showlegend=True,
-    ))
-
-    fig.update_layout(
-        mapbox=dict(
-            style="white-bg",
-            layers=[{
-                "below": "traces",
-                "sourcetype": "raster",
-                "source": ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}"],
-                "sourceattribution": "© Esri / World Topo Map",
-            }],
-            center=dict(lat=39.0, lon=-105.55),
-            zoom=6.5,
-        ),
-        margin={"r": 0, "t": 0, "l": 0, "b": 0},
-        height=520,
-        paper_bgcolor="rgba(0,0,0,0)",
-        legend=dict(
-            x=0.01, y=0.99,
-            bgcolor="rgba(220,238,255,0.92)",
-            bordercolor="#90b8d8",
-            borderwidth=1,
-            font=dict(color="#0d1b2e", size=11),
-            itemsizing="constant",
-        ),
-    )
-    st.plotly_chart(fig, use_container_width=True)
+_map_ph = st.empty()
 
 # ── Two-column layout: conditions | chat ─────────────────────────────────────
 
 col_left, col_right = st.columns([1, 1.5], gap="large")
 
-# ── LEFT: controls + live condition cards ────────────────────────────────────
+# ── LEFT: controls (no data needed) + cards placeholder ──────────────────────
 
 with col_left:
     st.markdown("### ⛷️ Colorado Powracle")
@@ -350,6 +234,7 @@ with col_left:
         options=list(_STARTING_CITIES.keys()),
         key="start_city",
     )
+    user_lat, user_lon = _STARTING_CITIES[city_name]
 
     sort_by = st.radio(
         "Sort by:",
@@ -358,138 +243,34 @@ with col_left:
         key="sort_by",
     )
 
-    st.markdown("---")
+    # st.markdown('<hr style="margin:0.4rem 0 0.3rem 0;border-color:rgba(255,255,255,0.15);">', unsafe_allow_html=True)
     st.markdown("#### ❄️ Live Conditions")
 
-    _cards = st.container(border=False)
+    # Placeholder — shows "Loading..." immediately, replaced with cards after data loads
+    _cards_ph = st.empty()
+    with _cards_ph.container():
+        st.caption("⏳ Loading conditions...")
 
-    if sort_by == "🤖 AI Pick":
-        if "ai_pick_ranking" in st.session_state:
-            _rank_map = {r: i for i, r in enumerate(st.session_state["ai_pick_ranking"])}
-            _ordered = sorted(visible.items(), key=lambda x: _rank_map.get(x[0], 999))
-        else:
-            # No agent response yet — fall back to fresh snow order
-            _ordered = sorted(
-                visible.items(),
-                key=lambda x: -(x[1].get("new_snow_72h", 0) if x[1] else 0)
-            )
-            st.caption("💬 Ask the Oracle a question to personalise the AI Pick ranking.")
-    else:
-        def _sort_key(item):
-            resort, d = item
-            if sort_by == "📍 Distance":
-                return _haversine_miles(
-                    user_lat, user_lon,
-                    RESORT_STATIONS[resort]["lat"], RESORT_STATIONS[resort]["lon"]
-                )
-            elif sort_by == "🏔️ Base Snow":
-                return -(d.get("snow_depth_in", 0) if d else 0)
-            else:  # 🌨️ Fresh Snow
-                return -(d.get("new_snow_72h", 0) if d else 0)
-        _ordered = sorted(visible.items(), key=_sort_key)
-
-    with _cards:
-        for resort, d in _ordered:
-            badges = " ".join(_PASS_BADGE[p] for p in _resort_passes(resort))
-            dist = _haversine_miles(
-                user_lat, user_lon,
-                RESORT_STATIONS[resort]["lat"], RESORT_STATIONS[resort]["lon"]
-            )
-            dist_tag = f'<span style="color:#5a8fb5;font-size:0.82em"> · {dist:.0f} mi</span>'
-
-            if d is None:
-                st.markdown(
-                    f"⬜ **{resort}** {badges}{dist_tag}  \n"
-                    f'<span style="color:#5a8fb5;font-size:0.88em">no SNOTEL — check resort site</span>',
-                    unsafe_allow_html=True)
-                continue
-
-            new72 = d.get("new_snow_72h", 0)
-            base = d.get("snow_depth_in", 0)
-            _val = base if _use_base_map else new72
-            _t = (_val / _CMAX) if _CMAX > 0 else 0
-            icon = f'<span style="color:{_blues_color(_t)};font-size:1.2em;vertical-align:middle">●</span>'
-            st.markdown(
-                f"{icon} **{resort}** {badges}{dist_tag}  \n"
-                f'<span style="font-size:0.88em">{new72:.0f}" new (72h) · {base:.0f}" base</span>',
-                unsafe_allow_html=True)
-
-# ── RIGHT: chat ───────────────────────────────────────────────────────────────
+# ── RIGHT: chat (header + old history render now; new exchange fills in after data) ──
 
 with col_right:
-    st.markdown("### 💬 Ask the Powracle")
+    st.markdown("### 💬 Ask Powracle")
     st.caption(
         "Ask me where to ski, which resort has the best snow, "
         "or how this season compares to average.")
 
     prompt = st.chat_input("Where should I ski this weekend?")
 
-    _chat_container = st.container(height=520, border=False)
+    _chat_container = st.container(height=600, border=False)
 
     with _chat_container:
-        # New exchange renders at the top immediately
-        if prompt:
-            st.session_state.messages.append({"role": "user", "content": prompt})
+        # Placeholder at top of container — new exchange fills here after data loads
+        _new_msg_ph = st.empty()
 
-            # Build live conditions snapshot for all visible resorts
-            _cond_snapshot = "\n".join(
-                f"  - {r}: {conditions[r].get('new_snow_72h', 0):.0f}\" new (72h), "
-                f"{conditions[r].get('new_snow_48h', 0):.0f}\" new (48h), "
-                f"{conditions[r].get('new_snow_24h', 0):.0f}\" new (24h), "
-                f"{conditions[r].get('snow_depth_in', 0):.0f}\" base"
-                if conditions.get(r) else f"  - {r}: no live data"
-                for r in RESORT_STATIONS
-            )
-            _forecast_snapshot = "\n".join(
-                f"  - {r}: Sat {forecasts[r]['saturday_snow_in']:.1f}\" / "
-                f"Sun {forecasts[r]['sunday_snow_in']:.1f}\" / "
-                f"weekend total {forecasts[r]['weekend_total_in']:.1f}\""
-                if forecasts.get(r) else f"  - {r}: no forecast"
-                for r in RESORT_STATIONS
-            )
-            _context = (
-                f"[Live snowpack for all resorts right now:\n{_cond_snapshot}]\n\n"
-                f"[Weekend snowfall forecast (Open-Meteo):\n{_forecast_snapshot}]\n\n"
-            )
+        # Old history displayed immediately (no data dependency)
+        _old_history = st.session_state.messages
 
-            if selected_passes and "All" not in selected_passes:
-                pass_str = " and ".join(selected_passes)
-                pass_resorts = [r for r in RESORT_STATIONS
-                                if _pass_filter(r, selected_passes)]
-                agent_prompt = (
-                    _context
-                    + f"[User context: I have a {pass_str} Pass. "
-                    f"Only recommend resorts on my pass: {', '.join(pass_resorts)}.]\n\n"
-                    + prompt
-                )
-            else:
-                agent_prompt = _context + prompt
-
-            with st.chat_message("user"):
-                st.markdown(prompt)
-            with st.chat_message("assistant"):
-                with st.spinner("Checking the snowpack..."):
-                    response = st.session_state.agent.run(agent_prompt)
-                st.markdown(response)
-
-            st.session_state.messages.append({"role": "assistant", "content": response})
-
-            # Update AI Pick ranking based on resort mention order in agent response
-            _lower = response.lower()
-            _mentioned = sorted(
-                [(r, _lower.index(r.lower())) for r in RESORT_STATIONS if r.lower() in _lower],
-                key=lambda x: x[1]
-            )
-            _ranked = [r for r, _ in _mentioned]
-            for r in vis_names:
-                if r not in _ranked:
-                    _ranked.append(r)
-            st.session_state["ai_pick_ranking"] = _ranked
-
-        # Previous messages shown below in reverse (newest-first)
-        _history = st.session_state.messages[:-2] if prompt else st.session_state.messages
-
-        if not _history and not prompt:
+        if not _old_history and not prompt:
             with st.chat_message("assistant"):
                 st.markdown(
                     "Hey! I can tell you where the powder is right now, "
@@ -497,13 +278,310 @@ with col_right:
                     "this season is above or below average. What do you want to know?"
                 )
 
-        _pairs = list(zip(_history[0::2], _history[1::2]))
+        _pairs = list(zip(_old_history[0::2], _old_history[1::2]))
         for user_msg, asst_msg in reversed(_pairs):
             with st.chat_message(user_msg["role"]):
                 st.markdown(user_msg["content"])
             with st.chat_message(asst_msg["role"]):
                 st.markdown(asst_msg["content"])
 
+# ── Load data — user sees page skeleton above while this runs ─────────────────
+
+with _TPE(max_workers=2) as _pool:
+    _fc = _pool.submit(load_conditions)
+    _ff = _pool.submit(load_forecasts)
+    conditions = _fc.result()
+    forecasts = _ff.result()
+
+# ── Compute data-dependent display values ─────────────────────────────────────
+
+visible = {r: d for r, d in conditions.items() if _pass_filter(r,
+                                                               selected_passes)}
+vis_names = list(visible.keys())
+
+_use_base_map = sort_by == "🏔️ Base Snow"
+_map_field = "snow_depth_in" if _use_base_map else "new_snow_72h"
+_map_label = "Base depth (in)" if _use_base_map else "72h snow (in)"
+_map_floor = 30 if _use_base_map else 6
+_map_scale = 0.2 if _use_base_map else 2
+
+_all_map_vals = [visible[r].get(_map_field, 0) if visible[r] else 0
+                 for r in vis_names]
+_CMIN = 0
+_CMAX = max(max(_all_map_vals, default=0), _map_floor)
+
+# ── Fill map placeholder ──────────────────────────────────────────────────────
+
+with _map_ph.container():
+    with st.expander("🗺️ Show Resort Map", expanded=False):
+        fig = go.Figure()
+
+        # Precompute per-pass data once, reused across both render loops
+        _pass_data = {}
+        for pass_name, style in _PASS_STYLE.items():
+            p_resorts = [r for r in vis_names
+                         if pass_name in RESORT_STATIONS[r].get("pass", [])]
+            if not p_resorts:
+                continue
+            p_snows = [visible[r].get("new_snow_72h", 0)
+                       if visible[r] else 0 for r in p_resorts]
+            p_bases = [visible[r].get("snow_depth_in", 0)
+                       if visible[r] else 0 for r in p_resorts]
+            p_map_vals = [p_bases[i] if _use_base_map else p_snows[i]
+                          for i in range(len(p_resorts))]
+            p_dists = [_haversine_miles(user_lat, user_lon,
+                                        RESORT_STATIONS[r]["lat"], RESORT_STATIONS[r]["lon"])
+                       for r in p_resorts]
+            p_texts = [
+                (f"<b>{r}</b>  [{pass_name}]<br>"
+                 f"❄ New 72h: {p_snows[i]:.0f}\"  ·  Base: {p_bases[i]:.0f}\"<br>"
+                 f"📍 {p_dists[i]:.0f} mi from {city_name}")
+                for i, r in enumerate(p_resorts)
+            ]
+            p_sizes = [max(10, min(36, v * _map_scale + 10))
+                       for v in p_map_vals]
+            _pass_data[pass_name] = dict(
+                resorts=p_resorts, map_vals=p_map_vals,
+                texts=p_texts, sizes=p_sizes, style=style,
+            )
+
+        # Layer 1 — pass-colored halos (rendered first, sit underneath)
+        for pass_name, d in _pass_data.items():
+            fig.add_trace(go.Scattermap(
+                lat=[RESORT_STATIONS[r]["lat"] for r in d["resorts"]],
+                lon=[RESORT_STATIONS[r]["lon"] for r in d["resorts"]],
+                mode="markers",
+                name=pass_name,
+                hoverinfo="skip",
+                marker=dict(
+                    size=[min(s + 12, 48) for s in d["sizes"]],
+                    color=d["style"]["border"],
+                    opacity=0.55,
+                ),
+            ))
+
+        # Layer 2 — snow-level colorscale fill (rendered on top, carries hover + colorbar)
+        first_colorbar = True
+        for pass_name, d in _pass_data.items():
+            colorbar_cfg = dict(
+                title=dict(text=_map_label, font=dict(
+                    color="#0d1b2e", size=11)),
+                thickness=12, len=0.55,
+                tickfont=dict(color="#0d1b2e", size=10),
+                bgcolor="rgba(220,238,255,0.92)",
+                bordercolor="#90b8d8",
+                borderwidth=1,
+            ) if first_colorbar else None
+            fig.add_trace(go.Scattermap(
+                lat=[RESORT_STATIONS[r]["lat"] for r in d["resorts"]],
+                lon=[RESORT_STATIONS[r]["lon"] for r in d["resorts"]],
+                text=d["texts"],
+                hoverinfo="text",
+                mode="markers",
+                showlegend=False,
+                marker=dict(
+                    size=d["sizes"],
+                    color=d["map_vals"],
+                    colorscale=_SNOW_CS,
+                    cmin=_CMIN, cmax=_CMAX,
+                    showscale=first_colorbar,
+                    colorbar=colorbar_cfg,
+                    opacity=0.95,
+                ),
+            ))
+            first_colorbar = False
+
+        fig.add_trace(go.Scattermap(
+            lat=[user_lat], lon=[user_lon],
+            mode="markers+text",
+            text=[f"  {city_name}"],
+            textposition="bottom right",
+            textfont=dict(color="#b83200", size=12, family="Arial Black"),
+            hovertext=f"📍 {city_name}",
+            hoverinfo="text",
+            marker=dict(size=18, color="#e03c00"),
+            name="📍 You",
+            showlegend=True,
+        ))
+
+        fig.update_layout(
+            map=dict(
+                style="white-bg",
+                layers=[{
+                    "below": "traces",
+                    "sourcetype": "raster",
+                    "source": ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}"],
+                    "sourceattribution": "© Esri / World Topo Map",
+                }],
+                center=dict(lat=39.0, lon=-105.55),
+                zoom=6.5,
+            ),
+            margin={"r": 0, "t": 0, "l": 0, "b": 0},
+            height=520,
+            paper_bgcolor="rgba(0,0,0,0)",
+            legend=dict(
+                x=0.01, y=0.99,
+                bgcolor="rgba(220,238,255,0.92)",
+                bordercolor="#90b8d8",
+                borderwidth=1,
+                font=dict(color="#0d1b2e", size=11),
+                itemsizing="constant",
+            ),
+        )
+        st.plotly_chart(fig, width="stretch")
+
+# ── Compute sort ordering ─────────────────────────────────────────────────────
+
+if sort_by == "🤖 AI Pick":
+    if "ai_pick_ranking" in st.session_state:
+        _rank_map = {r: i for i, r in enumerate(
+            st.session_state["ai_pick_ranking"])}
+        _ordered = sorted(
+            visible.items(), key=lambda x: _rank_map.get(x[0], 999))
+    else:
+        _ordered = sorted(
+            visible.items(),
+            key=lambda x: -(x[1].get("new_snow_72h", 0) if x[1] else 0)
+        )
+else:
+    def _sort_key(item):
+        resort, d = item
+        if sort_by == "📍 Distance":
+            return _haversine_miles(
+                user_lat, user_lon,
+                RESORT_STATIONS[resort]["lat"], RESORT_STATIONS[resort]["lon"]
+            )
+        elif sort_by == "🏔️ Base Snow":
+            return -(d.get("snow_depth_in", 0) if d else 0)
+        else:  # 🌨️ Fresh Snow
+            return -(d.get("new_snow_72h", 0) if d else 0)
+    _ordered = sorted(visible.items(), key=_sort_key)
+
+# ── Fill cards placeholder ────────────────────────────────────────────────────
+
+with _cards_ph.container():
+    if sort_by == "🤖 AI Pick" and "ai_pick_ranking" not in st.session_state:
+        st.caption(
+            "💬 Ask the Oracle a question to personalise the AI Pick ranking.")
+
+    for resort, d in _ordered:
+        badges = " ".join(_PASS_BADGE[p] for p in _resort_passes(resort))
+        dist = _haversine_miles(
+            user_lat, user_lon,
+            RESORT_STATIONS[resort]["lat"], RESORT_STATIONS[resort]["lon"]
+        )
+        dist_tag = f'<span style="color:#5a8fb5;font-size:0.82em"> · {dist:.0f} mi</span>'
+
+        if d is None:
+            st.markdown(
+                f"⬜ **{resort}** {badges}{dist_tag}  \n"
+                f'<span style="color:#5a8fb5;font-size:0.88em">no SNOTEL — check resort site</span>',
+                unsafe_allow_html=True)
+            continue
+
+        new72 = d.get("new_snow_72h", 0)
+        base = d.get("snow_depth_in", 0)
+        _val = base if _use_base_map else new72
+        _t = (_val / _CMAX) if _CMAX > 0 else 0
+        icon = f'<span style="color:{_blues_color(_t)};font-size:1.2em;vertical-align:middle">●</span>'
+        st.markdown(
+            f"{icon} **{resort}** {badges}{dist_tag}  \n"
+            f'<span style="font-size:0.88em">{new72:.0f}" new (72h) · {base:.0f}" base</span>',
+            unsafe_allow_html=True)
+
+# ── Handle new prompt — data is loaded, build snapshot and call agent ──────────
+
+if prompt:
+    st.session_state.messages.append({"role": "user", "content": prompt})
+
+    # Build live conditions snapshot for all resorts (unrounded so agent is precise)
+    _cond_snapshot = "\n".join(
+        f"  - {r}: {conditions[r].get('new_snow_72h', 0):.1f}\" new (72h), "
+        f"{conditions[r].get('new_snow_48h', 0):.1f}\" new (48h), "
+        f"{conditions[r].get('new_snow_24h', 0):.1f}\" new (24h), "
+        f"{conditions[r].get('snow_depth_in', 0):.1f}\" base"
+        if conditions.get(r) else f"  - {r}: no live data"
+        for r in RESORT_STATIONS
+    )
+    _forecast_snapshot = "\n".join(
+        f"  - {r}: Sat {forecasts[r]['saturday_snow_in']:.1f}\" / "
+        f"Sun {forecasts[r]['sunday_snow_in']:.1f}\" / "
+        f"weekend total {forecasts[r]['weekend_total_in']:.1f}\""
+        if forecasts.get(r) else f"  - {r}: no forecast"
+        for r in RESORT_STATIONS
+    )
+    _context = (
+        f"[Live snowpack for all resorts right now:\n{_cond_snapshot}]\n\n"
+        f"[Weekend snowfall forecast (Open-Meteo):\n{_forecast_snapshot}]\n\n"
+    )
+
+    if selected_passes and "All" not in selected_passes:
+        pass_str = " and ".join(selected_passes)
+        pass_resorts = [r for r in RESORT_STATIONS
+                        if _pass_filter(r, selected_passes)]
+        agent_prompt = (
+            _context
+            + f"[User context: I have a {pass_str} Pass. "
+            f"Only recommend resorts on my pass: {', '.join(pass_resorts)}.]\n\n"
+            + prompt
+        )
+    else:
+        agent_prompt = _context + prompt
+
+    # Write new exchange into the top placeholder inside _chat_container
+    with _new_msg_ph.container():
+        with st.chat_message("user"):
+            st.markdown(prompt)
+        with st.chat_message("assistant"):
+            with st.spinner("Checking the snowpack..."):
+                print(f"\n\033[1mQuestion:\033[0m {prompt}")
+
+                # Pass the last 3 exchanges (6 messages) as conversation memory.
+                # Older turns are dropped to keep context costs bounded.
+                # Only the current question gets the full live snapshot injected.
+                # exclude just-appended user msg
+                _history = st.session_state.messages[:-1]
+                # last 3 exchanges = 6 messages
+                _recent = _history[-6:]
+                _conv = [
+                    ("human" if m["role"] ==
+                     "user" else "assistant", m["content"])
+                    for m in _recent
+                ]
+                _conv.append(("human", agent_prompt))
+                result = st.session_state.agent.invoke({"messages": _conv})
+                response = result["messages"][-1].content
+
+            # Extract hidden [RANKING: ...] line and strip it from displayed text
+            _ranking_match = re.search(r'\[RANKING:\s*([^\]]+)\]', response)
+            response_display = re.sub(
+                r'\s*\[RANKING:[^\]]+\]', '', response).strip()
+            st.markdown(response_display)
+
+    st.session_state.messages.append(
+        {"role": "assistant", "content": response_display})
+
+    # Update AI Pick ranking from the explicit hidden ranking line
+    if _ranking_match:
+        _ranked = [r.strip() for r in _ranking_match.group(1).split(',')]
+        # Ensure all resorts are present (append any the agent omitted)
+        for r in RESORT_STATIONS:
+            if r not in _ranked:
+                _ranked.append(r)
+    else:
+        # Fallback: mention-order
+        _lower = response.lower()
+        _mentioned = sorted(
+            [(r, _lower.index(r.lower()))
+             for r in RESORT_STATIONS if r.lower() in _lower],
+            key=lambda x: x[1]
+        )
+        _ranked = [r for r, _ in _mentioned]
+        for r in RESORT_STATIONS:
+            if r not in _ranked:
+                _ranked.append(r)
+    st.session_state["ai_pick_ranking"] = _ranked
+
     # Rerun so the left column reflects the new ranking immediately
-    if prompt and sort_by == "🤖 AI Pick":
+    if sort_by == "🤖 AI Pick":
         st.rerun()

@@ -381,13 +381,12 @@ with col_left:
                     _cond_lines.append(f"- {r}: no SNOTEL data, {_mi} mi")
 
             _chat_ctx = ""
-            _user_msgs = [m for m in st.session_state.messages if m["role"] == "user"]
-            if _user_msgs:
-                _recent_user = _user_msgs[-4:]
+            _asst_msgs = [m for m in st.session_state.messages if m["role"] == "assistant"]
+            if _asst_msgs:
+                _recent_asst = _asst_msgs[-2:]
                 _chat_ctx = (
-                    "User's stated preferences and questions "
-                    "(use these to personalise the ranking):\n"
-                    + "\n".join(f"- {m['content']}" for m in _recent_user)
+                    "Recent agent recommendations — rank resorts to reflect these conclusions:\n"
+                    + "\n".join(f"- {m['content'][:600]}" for m in _recent_asst)
                     + "\n\n"
                 )
 

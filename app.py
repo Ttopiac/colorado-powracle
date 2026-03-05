@@ -462,3 +462,7 @@ with col_right:
             if r not in _ranked:
                 _ranked.append(r)
         st.session_state["ai_pick_ranking"] = _ranked
+
+        # Rerun so the left column reflects the new ranking immediately
+        if sort_by == "🤖 AI Pick":
+            st.rerun()

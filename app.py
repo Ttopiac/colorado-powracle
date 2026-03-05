@@ -28,23 +28,75 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-/* Soften the map expander container */
-[data-testid="stExpander"] {
-    border: 1px solid rgba(99, 179, 237, 0.18) !important;
-    border-radius: 14px !important;
-    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.25) !important;
-    overflow: hidden;
+/* ── Unified text hierarchy ───────────────────────────────────────── */
+/* L3 — Content text: widget labels, dropdowns, radio, captions, chat */
+[data-testid="stWidgetLabel"] p,
+label,
+[data-testid="stSelectbox"] div[data-baseweb="select"] span,
+[data-testid="stMultiSelect"] span,
+.stRadio label span,
+[data-testid="stCaptionContainer"] p,
+[data-testid="stMarkdownContainer"] p,
+[data-testid="stMarkdownContainer"] li,
+[data-testid="stChatMessage"] p,
+[data-testid="stChatMessage"] li,
+[data-testid="stChatInput"] textarea {
+    font-size: 0.97rem !important;
+    line-height: 1.6 !important;
 }
-/* Round the Plotly chart itself so the map has soft edges */
+
+/* ── Map expander ─────────────────────────────────────────────────── */
+[data-testid="stExpander"] {
+    border: 1.5px solid rgba(99, 179, 237, 0.2) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2) !important;
+    overflow: hidden !important;
+}
+
+/* ── Plotly chart rounding ────────────────────────────────────────── */
 [data-testid="stPlotlyChart"] {
-    border-radius: 12px;
-    overflow: hidden;
+    border-radius: 14px !important;
+    overflow: hidden !important;
 }
 [data-testid="stPlotlyChart"] > div,
 [data-testid="stPlotlyChart"] iframe {
-    border-radius: 12px;
-    overflow: hidden;
+    border-radius: 14px !important;
+    overflow: hidden !important;
 }
+
+/* ── Chat messages ────────────────────────────────────────────────── */
+[data-testid="stChatMessage"] {
+    border-radius: 14px !important;
+    border-width: 1px !important;
+    border-style: solid !important;
+    border-color: rgba(99, 179, 237, 0.12) !important;
+}
+
+/* ── Resort cards ─────────────────────────────────────────────────── */
+.resort-card {
+    padding: 9px 13px;
+    margin-bottom: 5px;
+    border-radius: 11px;
+    border: 1px solid rgba(99, 179, 237, 0.1);
+    background: rgba(255, 255, 255, 0.04);
+    transition: border-color 0.18s, background 0.18s;
+    line-height: 1.5;
+}
+.resort-card:hover {
+    border-color: rgba(99, 179, 237, 0.28);
+    background: rgba(255, 255, 255, 0.07);
+}
+.resort-card-top {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.resort-dot { font-size: 1.1em; vertical-align: middle; line-height: 1; }
+.resort-name { font-weight: 600; font-size: 0.97rem; }
+.resort-dist { font-size: 0.88rem; opacity: 0.55; margin-left: auto; white-space: nowrap; }
+.resort-stats { font-size: 0.97rem; opacity: 0.72; margin-top: 1px; padding-left: 20px; }
+.resort-no-data { font-size: 0.88rem; opacity: 0.5; margin-top: 1px; padding-left: 20px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -146,9 +198,9 @@ _PASS_STYLE = {
 
 # Colored HTML pill per pass (used in condition cards)
 _PASS_BADGE = {
-    "IKON": '<span style="background:#0a2a5c;color:#90caf9;padding:1px 6px;border-radius:4px;font-size:0.72em;font-weight:700;letter-spacing:0.05em">IKON</span>',
-    "EPIC": '<span style="background:#2d0a5c;color:#ce93d8;padding:1px 6px;border-radius:4px;font-size:0.72em;font-weight:700;letter-spacing:0.05em">EPIC</span>',
-    "INDY": '<span style="background:#0a3318;color:#80cbc4;padding:1px 6px;border-radius:4px;font-size:0.72em;font-weight:700;letter-spacing:0.05em">INDY</span>',
+    "IKON": '<span style="background:rgba(41,182,246,0.18);color:#7dd3fc;padding:2px 7px;border-radius:20px;font-size:0.7em;font-weight:700;letter-spacing:0.07em;border:1px solid rgba(41,182,246,0.3)">IKON</span>',
+    "EPIC": '<span style="background:rgba(167,139,250,0.18);color:#c4b5fd;padding:2px 7px;border-radius:20px;font-size:0.7em;font-weight:700;letter-spacing:0.07em;border:1px solid rgba(167,139,250,0.3)">EPIC</span>',
+    "INDY": '<span style="background:rgba(52,211,153,0.18);color:#6ee7b7;padding:2px 7px;border-radius:20px;font-size:0.7em;font-weight:700;letter-spacing:0.07em;border:1px solid rgba(52,211,153,0.3)">INDY</span>',
 }
 
 
@@ -243,8 +295,12 @@ with col_left:
         key="sort_by",
     )
 
-    # st.markdown('<hr style="margin:0.4rem 0 0.3rem 0;border-color:rgba(255,255,255,0.15);">', unsafe_allow_html=True)
-    st.markdown("#### ❄️ Live Conditions")
+    st.markdown(
+        '<div style="display:flex;align-items:center;gap:8px;margin:6px 0 4px 0;">'
+        '<span style="font-size:1.15rem;font-weight:700;letter-spacing:-0.01em;">❄️ Live Conditions</span>'
+        '<div style="flex:1;height:1.5px;background:linear-gradient(to right,rgba(99,179,237,0.35),transparent);margin-left:4px;"></div>'
+        '</div>',
+        unsafe_allow_html=True)
 
     # Placeholder — shows "Loading..." immediately, replaced with cards after data loads
     _cards_ph = st.empty()
@@ -254,7 +310,7 @@ with col_left:
 # ── RIGHT: chat (header + old history render now; new exchange fills in after data) ──
 
 with col_right:
-    st.markdown("### 💬 Ask Powracle")
+    st.markdown("### 💬 Ask the Powracle")
     st.caption(
         "Ask me where to ski, which resort has the best snow, "
         "or how this season compares to average.")
@@ -461,33 +517,46 @@ else:
 
 with _cards_ph.container():
     if sort_by == "🤖 AI Pick" and "ai_pick_ranking" not in st.session_state:
-        st.caption(
-            "💬 Ask the Oracle a question to personalise the AI Pick ranking.")
+        st.caption("💬 Ask a question to personalise the AI Pick ranking.")
 
+    cards_html = []
     for resort, d in _ordered:
         badges = " ".join(_PASS_BADGE[p] for p in _resort_passes(resort))
         dist = _haversine_miles(
             user_lat, user_lon,
             RESORT_STATIONS[resort]["lat"], RESORT_STATIONS[resort]["lon"]
         )
-        dist_tag = f'<span style="color:#5a8fb5;font-size:0.82em"> · {dist:.0f} mi</span>'
 
         if d is None:
-            st.markdown(
-                f"⬜ **{resort}** {badges}{dist_tag}  \n"
-                f'<span style="color:#5a8fb5;font-size:0.88em">no SNOTEL — check resort site</span>',
-                unsafe_allow_html=True)
+            cards_html.append(
+                f'<div class="resort-card">'
+                f'<div class="resort-card-top">'
+                f'<span class="resort-dot" style="color:#5a8fb5">○</span>'
+                f'<span class="resort-name">{resort}</span>{badges}'
+                f'<span class="resort-dist">{dist:.0f} mi</span>'
+                f'</div>'
+                f'<div class="resort-no-data">no SNOTEL — check resort site</div>'
+                f'</div>'
+            )
             continue
 
         new72 = d.get("new_snow_72h", 0)
         base = d.get("snow_depth_in", 0)
         _val = base if _use_base_map else new72
         _t = (_val / _CMAX) if _CMAX > 0 else 0
-        icon = f'<span style="color:{_blues_color(_t)};font-size:1.2em;vertical-align:middle">●</span>'
-        st.markdown(
-            f"{icon} **{resort}** {badges}{dist_tag}  \n"
-            f'<span style="font-size:0.88em">{new72:.0f}" new (72h) · {base:.0f}" base</span>',
-            unsafe_allow_html=True)
+        dot_color = _blues_color(_t)
+        cards_html.append(
+            f'<div class="resort-card">'
+            f'<div class="resort-card-top">'
+            f'<span class="resort-dot" style="color:{dot_color}">●</span>'
+            f'<span class="resort-name">{resort}</span>{badges}'
+            f'<span class="resort-dist">{dist:.0f} mi</span>'
+            f'</div>'
+            f'<div class="resort-stats">{new72:.0f}" new (72h) · {base:.0f}" base</div>'
+            f'</div>'
+        )
+
+    st.markdown("".join(cards_html), unsafe_allow_html=True)
 
 # ── Handle new prompt — data is loaded, build snapshot and call agent ──────────
 

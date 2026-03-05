@@ -163,17 +163,6 @@ _SNOW_CS = [
 ]
 
 
-@st.cache_resource
-def _get_rank_llm():
-    """Lightweight LLM (no tools) used only for resort ranking."""
-    from langchain_openai import ChatOpenAI
-    return ChatOpenAI(
-        model_name="anthropic/claude-3-haiku",
-        temperature=0,
-        api_key=os.getenv("OPENROUTER_API_KEY"),
-        base_url="https://openrouter.ai/api/v1",
-    )
-
 
 # ── Seed session state so map expander can read widget values on first load ───
 
@@ -356,76 +345,16 @@ with col_left:
     st.markdown("#### ❄️ Live Conditions")
 
     if sort_by == "🤖 AI Pick":
-        _conditions_hash = hash(tuple(
-            (r, visible[r].get("new_snow_72h", 0) if visible[r] else -1)
-            for r in sorted(vis_names)
-        ))
-        _chat_hash = hash(tuple(
-            (m["role"], m["content"]) for m in st.session_state.messages
-        ))
-        _rank_key = f"ai_rank|{city_name}|{_conditions_hash}|{_chat_hash}"
-
-        if _rank_key not in st.session_state:
-            _cond_lines = []
-            for r in vis_names:
-                d0 = visible[r]
-                _mi = round(_haversine_miles(user_lat, user_lon,
-                                             RESORT_STATIONS[r]["lat"],
-                                             RESORT_STATIONS[r]["lon"]))
-                if d0:
-                    _cond_lines.append(
-                        f"- {r}: {d0.get('new_snow_72h', 0):.0f}\" new (72h), "
-                        f"{d0.get('snow_depth_in', 0):.0f}\" base, {_mi} mi"
-                    )
-                else:
-                    _cond_lines.append(f"- {r}: no SNOTEL data, {_mi} mi")
-
-            _chat_ctx = ""
-            _asst_msgs = [m for m in st.session_state.messages if m["role"] == "assistant"]
-            if _asst_msgs:
-                _recent_asst = _asst_msgs[-2:]
-                _chat_ctx = (
-                    "Recent agent recommendations — rank resorts to reflect these conclusions:\n"
-                    + "\n".join(f"- {m['content'][:600]}" for m in _recent_asst)
-                    + "\n\n"
-                )
-
-            _prompt = (
-                f"Rank these Colorado ski resorts for a ski trip this weekend "
-                f"starting from {city_name}.\n\n"
-                + _chat_ctx
-                + "Current snow conditions:\n"
-                + "\n".join(_cond_lines) + "\n\n"
-                + "Default priorities: 1) recent powder (72h new snow), "
-                "2) solid base depth, 3) shorter drive. "
-                "Override these defaults if the user expressed different preferences.\n\n"
-                "Reply with ONLY the resort names in ranked order, one per line, "
-                "using exactly these names:\n"
-                + "\n".join(vis_names)
+        if "ai_pick_ranking" in st.session_state:
+            _rank_map = {r: i for i, r in enumerate(st.session_state["ai_pick_ranking"])}
+            _ordered = sorted(visible.items(), key=lambda x: _rank_map.get(x[0], 999))
+        else:
+            # No agent response yet — fall back to fresh snow order
+            _ordered = sorted(
+                visible.items(),
+                key=lambda x: -(x[1].get("new_snow_72h", 0) if x[1] else 0)
             )
-            with st.spinner("🤖 Personalising resort ranking..."):
-                try:
-                    _resp = _get_rank_llm().invoke(_prompt).content
-                    _lines = [
-                        ln.strip().lstrip("0123456789.*-) ").strip()
-                        for ln in _resp.strip().split("\n") if ln.strip()
-                    ]
-                    _ranked = [ln for ln in _lines if ln in vis_names]
-                    for r in vis_names:
-                        if r not in _ranked:
-                            _ranked.append(r)
-                    st.session_state[_rank_key] = _ranked
-                except Exception as e:
-                    st.warning(f"AI Pick unavailable: {e}. Falling back to fresh snow order.")
-                    _snow_fallback = sorted(
-                        vis_names,
-                        key=lambda r: -(visible[r].get("new_snow_72h", 0) if visible[r] else 0)
-                    )
-                    st.session_state[_rank_key] = _snow_fallback
-
-        _rank_map = {r: i for i, r in enumerate(st.session_state[_rank_key])}
-        _ordered = sorted(
-            visible.items(), key=lambda x: _rank_map.get(x[0], 999))
+            st.caption("💬 Ask the Oracle a question to personalise the AI Pick ranking.")
     else:
         def _sort_key(item):
             resort, d = item
@@ -509,3 +438,15 @@ with col_right:
 
         st.session_state.messages.append(
             {"role": "assistant", "content": response})
+
+        # Update AI Pick ranking based on resort mention order in agent response
+        _lower = response.lower()
+        _mentioned = sorted(
+            [(r, _lower.index(r.lower())) for r in RESORT_STATIONS if r.lower() in _lower],
+            key=lambda x: x[1]
+        )
+        _ranked = [r for r, _ in _mentioned]
+        for r in vis_names:
+            if r not in _ranked:
+                _ranked.append(r)
+        st.session_state["ai_pick_ranking"] = _ranked

@@ -419,17 +419,29 @@ with col_right:
         with st.chat_message("user"):
             st.markdown(prompt)
 
+        # Build live conditions snapshot for all visible resorts
+        _cond_snapshot = "\n".join(
+            f"  - {r}: {conditions[r].get('new_snow_72h', 0):.0f}\" new (72h), "
+            f"{conditions[r].get('new_snow_48h', 0):.0f}\" new (48h), "
+            f"{conditions[r].get('new_snow_24h', 0):.0f}\" new (24h), "
+            f"{conditions[r].get('snow_depth_in', 0):.0f}\" base"
+            if conditions.get(r) else f"  - {r}: no live data"
+            for r in RESORT_STATIONS
+        )
+        _context = f"[Live snowpack for all resorts right now:\n{_cond_snapshot}]\n\n"
+
         if selected_passes and "All" not in selected_passes:
             pass_str = " and ".join(selected_passes)
             pass_resorts = [r for r in RESORT_STATIONS
                             if _pass_filter(r, selected_passes)]
             agent_prompt = (
-                f"[User context: I have a {pass_str} Pass. "
+                _context
+                + f"[User context: I have a {pass_str} Pass. "
                 f"Only recommend resorts on my pass: {', '.join(pass_resorts)}.]\n\n"
                 + prompt
             )
         else:
-            agent_prompt = prompt
+            agent_prompt = _context + prompt
 
         with st.chat_message("assistant"):
             with st.spinner("Checking the snowpack..."):

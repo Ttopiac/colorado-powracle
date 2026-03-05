@@ -164,7 +164,7 @@ RESORT_STATIONS = {
     "Sunlight Mountain": {
         "station_id":    None,
         "station_name":  None,
-        "snotel_quality": "none",    # nearest SNTL is 20+ miles away
+        "snotel_quality": "none",    # nearest SNTL is 20+ miles away in a different range
         "corridor":      "I-70 then CO-82",
         "pass":          ["INDY"],
         "lat": 39.4678, "lon": -107.3653,

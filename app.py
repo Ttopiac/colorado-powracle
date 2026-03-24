@@ -45,12 +45,17 @@ label,
     line-height: 1.6 !important;
 }
 
-/* ── Map expander ─────────────────────────────────────────────────── */
+/* ── Expanders (map & trip planner) ──────────────────────────────── */
 [data-testid="stExpander"] {
     border: 1.5px solid rgba(99, 179, 237, 0.2) !important;
     border-radius: 16px !important;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2) !important;
     overflow: hidden !important;
+}
+/* Trip planner specific styling */
+[data-testid="stExpander"]:has(button[aria-label*="Trip"]) {
+    background: linear-gradient(135deg, rgba(52,211,153,0.03), rgba(41,182,246,0.03));
+    border-color: rgba(52,211,153,0.25) !important;
 }
 
 /* ── Plotly chart rounding ────────────────────────────────────────── */
@@ -137,6 +142,30 @@ def load_forecasts():
             return resort, None
         try:
             return resort, get_weekend_snowfall(info["lat"], info["lon"])
+        except Exception:
+            return resort, None
+
+    out = {}
+    with ThreadPoolExecutor(max_workers=10) as pool:
+        futures = {pool.submit(_fetch, r, i): r for r,
+                   i in RESORT_STATIONS.items()}
+        for f in as_completed(futures):
+            resort, data = f.result()
+            out[resort] = data
+    return out
+
+
+@st.cache_data(ttl=10800)
+def load_7day_forecasts():
+    """Full 7-day forecast for all resorts — parallel Open-Meteo calls."""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from ingestion.openmeteo_forecast import fetch_snow_forecast
+
+    def _fetch(resort, info):
+        if not info.get("lat"):
+            return resort, None
+        try:
+            return resort, fetch_snow_forecast(info["lat"], info["lon"], days=7)
         except Exception:
             return resort, None
 
@@ -528,6 +557,80 @@ with col_right:
         "Ask me where to ski, which resort has the best snow, "
         "or how this season compares to average.")
 
+    # ── Smart Trip Planner ────────────────────────────────────────────────
+    with st.expander("🗓️ Smart Trip Planner", expanded=False):
+        st.markdown("Plan a multi-day ski trip with optimal resort recommendations, forecast analysis, and traffic timing.")
+
+        plan_col1, plan_col2 = st.columns(2)
+        with plan_col1:
+            from datetime import datetime, timedelta
+            trip_start = st.date_input(
+                "Start date:",
+                value=datetime.now() + timedelta(days=3),
+                min_value=datetime.now().date(),
+                max_value=datetime.now().date() + timedelta(days=14),
+                help="When does your trip start?"
+            )
+        with plan_col2:
+            num_days = st.slider(
+                "Number of days:",
+                min_value=1,
+                max_value=7,
+                value=3,
+                help="How many days will you ski?"
+            )
+
+        lodging_pref = st.selectbox(
+            "Lodging preference (optional):",
+            options=["Flexible", "I-70 Corridor (Vail, Breck, etc.)", "Summit County", "Steamboat", "Aspen/Snowmass", "Wolf Creek area"],
+            help="Where do you prefer to stay? This helps optimize driving."
+        )
+
+        trip_notes = st.text_area(
+            "Additional preferences:",
+            placeholder="e.g., 'Avoid I-70 on weekends', 'Prefer tree skiing', 'Looking for steeps'",
+            height=60
+        )
+
+        if st.button("🎿 Generate Trip Plan", type="primary", use_container_width=True):
+            if not _first_load:
+                # Build trip planning prompt
+                trip_prompt = f"""I'm planning a {num_days}-day ski trip starting {trip_start.strftime('%A, %B %d')}.
+
+REQUIREMENTS:
+- Recommend which resorts to visit each day
+- Consider the 7-day snow forecast for optimal timing
+- Factor in weekend traffic patterns (avoid I-70 Sunday eastbound if possible)
+- Suggest best departure times to avoid traffic
+"""
+                if lodging_pref and lodging_pref != "Flexible":
+                    trip_prompt += f"- I'm staying in/near: {lodging_pref}\n"
+
+                if trip_notes.strip():
+                    trip_prompt += f"- Additional notes: {trip_notes}\n"
+
+                trip_prompt += f"\nMy ski pass(es): {', '.join(selected_passes) if selected_passes and 'All' not in selected_passes else 'Any resort is fine'}"
+                trip_prompt += f"\nStarting from: {city_name}"
+                trip_prompt += """
+
+Please provide a day-by-day itinerary in this format:
+
+**Day 1 (Date)** - Resort Name
+- Expected snow: X" fresh, Y" base
+- Conditions: [weather description]
+- Drive time: X hours from [location]
+- Departure: Leave by [time] to avoid traffic
+- Why: [brief rationale for this choice]
+
+[Continue for each day...]
+
+**Overall Tips:**
+[Any additional advice about lodging, traffic, gear, etc.]"""
+
+                # Inject this prompt into the chat
+                st.session_state.trip_planner_prompt = trip_prompt
+                st.rerun()
+
     prompt = st.chat_input("Where should I ski this weekend?")
 
     _chat_container = st.container(height=600, border=False)
@@ -554,8 +657,16 @@ with col_right:
 
 # ── Handle new prompt — data must be loaded ───────────────────────────────────
 
+# Check for trip planner prompt
+if "trip_planner_prompt" in st.session_state and not _first_load:
+    prompt = st.session_state.trip_planner_prompt
+    del st.session_state.trip_planner_prompt
+
 if prompt and not _first_load:
     st.session_state.messages.append({"role": "user", "content": prompt})
+
+    # Detect if this is a trip planning query
+    _is_trip_plan = any(keyword in prompt.lower() for keyword in ["trip", "itinerary", "day-by-day", "multi-day", "days starting"])
 
     # Build live conditions snapshot for all resorts (unrounded so agent is precise)
     _cond_snapshot = "\n".join(
@@ -566,17 +677,54 @@ if prompt and not _first_load:
         if conditions.get(r) else f"  - {r}: no live data"
         for r in RESORT_STATIONS
     )
-    _forecast_snapshot = "\n".join(
-        f"  - {r}: Sat {forecasts[r]['saturday_snow_in']:.1f}\" / "
-        f"Sun {forecasts[r]['sunday_snow_in']:.1f}\" / "
-        f"weekend total {forecasts[r]['weekend_total_in']:.1f}\""
-        if forecasts.get(r) else f"  - {r}: no forecast"
-        for r in RESORT_STATIONS
-    )
-    _context = (
-        f"[Live snowpack for all resorts right now:\n{_cond_snapshot}]\n\n"
-        f"[Weekend snowfall forecast (Open-Meteo):\n{_forecast_snapshot}]\n\n"
-    )
+
+    # Build forecast snapshot (enhanced for trip planning)
+    if _is_trip_plan:
+        # Load full 7-day forecast
+        forecasts_7day = load_7day_forecasts()
+        _forecast_lines = []
+        for r in RESORT_STATIONS:
+            if forecasts_7day.get(r):
+                daily = " / ".join([f"{f['date'][-5:]}: {f['snowfall_in']:.1f}\"" for f in forecasts_7day[r]])
+                _forecast_lines.append(f"  - {r}: {daily}")
+            else:
+                _forecast_lines.append(f"  - {r}: no forecast")
+        _forecast_snapshot = "\n".join(_forecast_lines)
+        _forecast_label = "7-day snowfall forecast (Open-Meteo)"
+    else:
+        _forecast_snapshot = "\n".join(
+            f"  - {r}: Sat {forecasts[r]['saturday_snow_in']:.1f}\" / "
+            f"Sun {forecasts[r]['sunday_snow_in']:.1f}\" / "
+            f"weekend total {forecasts[r]['weekend_total_in']:.1f}\""
+            if forecasts.get(r) else f"  - {r}: no forecast"
+            for r in RESORT_STATIONS
+        )
+        _forecast_label = "Weekend snowfall forecast (Open-Meteo)"
+
+    # Add traffic/distance context for trip planning
+    if _is_trip_plan:
+        _distance_info = "\n".join(
+            f"  - {r}: {_haversine_miles(user_lat, user_lon, RESORT_STATIONS[r]['lat'], RESORT_STATIONS[r]['lon']):.0f} mi from {city_name}"
+            for r in RESORT_STATIONS
+        )
+        _traffic_tips = """
+[Traffic patterns to consider:]
+  - Saturday AM westbound I-70: heavy 6-10am (leave early or late)
+  - Sunday PM eastbound I-70: very heavy 1-6pm (leave before noon or after 7pm)
+  - US-40 and US-285 are slower but less crowded alternatives
+  - Chain laws can add 30-60min delay during storms"""
+
+        _context = (
+            f"[Live snowpack for all resorts right now:\n{_cond_snapshot}]\n\n"
+            f"[{_forecast_label}:\n{_forecast_snapshot}]\n\n"
+            f"[Distances from {city_name}:\n{_distance_info}]\n\n"
+            f"{_traffic_tips}\n\n"
+        )
+    else:
+        _context = (
+            f"[Live snowpack for all resorts right now:\n{_cond_snapshot}]\n\n"
+            f"[{_forecast_label}:\n{_forecast_snapshot}]\n\n"
+        )
 
     if selected_passes and "All" not in selected_passes:
         pass_str = " and ".join(selected_passes)

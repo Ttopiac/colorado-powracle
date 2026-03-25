@@ -10,6 +10,7 @@ from ingestion.openmeteo_forecast import get_weekend_snowfall
 from resorts import RESORT_STATIONS
 import plotly.graph_objects as go
 import streamlit as st
+import streamlit.components.v1 as components
 import sys
 import os
 import math
@@ -28,6 +29,49 @@ st.set_page_config(
 
 st.markdown("""
 <style>
+/* ── Snowfall effect ──────────────────────────────────────────────── */
+/* Hide the markdown container holding the snowfall effect */
+div[data-testid="stMarkdownContainer"]:has(#snowfall-container) {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 0 !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    z-index: 999999 !important;
+}
+
+#snowfall-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 999999;
+    overflow: hidden;
+}
+.snowflake {
+    position: fixed;
+    top: -10px;
+    color: rgba(255, 255, 255, 0.85);
+    text-shadow: 0 0 3px rgba(255, 255, 255, 0.5);
+    font-size: 1em;
+    pointer-events: none;
+    animation: fall linear infinite;
+    user-select: none;
+}
+@keyframes fall {
+    0% {
+        transform: translateY(-10px) rotate(0deg);
+    }
+    100% {
+        transform: translateY(100vh) rotate(360deg);
+    }
+}
+
 /* ── Unified text hierarchy ───────────────────────────────────────── */
 /* L3 — Content text: widget labels, dropdowns, radio, captions, chat */
 [data-testid="stWidgetLabel"] p,
@@ -252,6 +296,8 @@ if "start_city" not in st.session_state:
     st.session_state.start_city = "Denver"
 if "sort_by" not in st.session_state:
     st.session_state.sort_by = "🌨️ Fresh Snow"
+if "snowfall_enabled" not in st.session_state:
+    st.session_state.snowfall_enabled = False
 
 # ── First-load detection ───────────────────────────────────────────────────────
 # On first load, conditions are not yet fetched. We render the layout (including
@@ -411,7 +457,39 @@ col_left, col_right = st.columns([1, 1.5], gap="large")
 # ── LEFT: controls + live condition cards ────────────────────────────────────
 
 with col_left:
-    st.markdown("### ⛷️ Colorado Powracle")
+    # Title with snowfall toggle (isolated fragment to prevent full page rerun)
+    @st.fragment
+    def snowfall_toggle():
+        title_col, toggle_col = st.columns([4, 1])
+        with title_col:
+            st.markdown("### ⛷️ Colorado Powracle")
+        with toggle_col:
+            st.checkbox(
+                "❄️",
+                value=st.session_state.snowfall_enabled,
+                key="snowfall_enabled",
+                help="Toggle snowfall effect"
+            )
+
+        # Render snowfall effect inside fragment so it updates on toggle
+        if st.session_state.snowfall_enabled:
+            import random
+            random.seed(42)  # Consistent positions across reruns
+
+            snowflakes_html = '<div id="snowfall-container">'
+            for i in range(50):
+                left = random.randint(0, 100)
+                size = random.uniform(0.5, 1.5)
+                opacity = random.uniform(0.3, 0.9)
+                duration = random.uniform(10, 25)
+                delay = random.uniform(0, 10)
+
+                snowflakes_html += f'<div class="snowflake" style="left:{left}%;font-size:{size}em;opacity:{opacity};animation-duration:{duration}s;animation-delay:{delay}s;">❄</div>'
+            snowflakes_html += '</div>'
+
+            st.markdown(snowflakes_html, unsafe_allow_html=True)
+
+    snowfall_toggle()
 
     selected_passes = st.multiselect(
         "My pass(es):",

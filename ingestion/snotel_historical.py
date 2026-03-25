@@ -31,17 +31,17 @@ def download_resort(resort_name: str, station_id: str, today: str) -> None:
     path = filename_for(resort_name)
 
     if os.path.exists(path):
-        print(f"  skipping {resort_name} — file already exists")
+        print(f"  skipping {resort_name} - file already exists")
         return
 
     print(f"  downloading {resort_name} ({station_id})...")
     resp = requests.get(url, timeout=60)
     resp.raise_for_status()
 
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8") as f:
         f.write(resp.text)
     lines = resp.text.count("\n")
-    print(f"  saved {lines} lines → {path}")
+    print(f"  saved {lines} lines -> {path}")
 
 
 def main():
@@ -53,7 +53,7 @@ def main():
     for resort_name, info in RESORT_STATIONS.items():
         sid = info.get("station_id")
         if not sid:
-            print(f"  {resort_name} — no SNOTEL station (skipping)")
+            print(f"  {resort_name} - no SNOTEL station (skipping)")
             continue
         if sid in seen_stations:
             # Write a symlink-style note so db/setup.py knows which file to use
@@ -61,9 +61,9 @@ def main():
             path = filename_for(resort_name)
             if not os.path.exists(path):
                 # Copy primary file path reference into a tiny pointer file
-                with open(path + ".alias", "w") as f:
+                with open(path + ".alias", "w", encoding="utf-8") as f:
                     f.write(filename_for(primary))
-            print(f"  {resort_name} shares station with {primary} — aliased")
+            print(f"  {resort_name} shares station with {primary} - aliased")
         else:
             seen_stations[sid] = resort_name
             download_resort(resort_name, sid, today)

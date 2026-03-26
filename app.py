@@ -687,7 +687,14 @@ REQUIREMENTS:
                 if trip_notes.strip():
                     trip_prompt += f"- Additional notes: {trip_notes}\n"
 
-                trip_prompt += f"\nMy ski pass(es): {', '.join(selected_passes) if selected_passes and 'All' not in selected_passes else 'Any resort is fine'}"
+                # Add pass restriction with explicit resort list
+                if selected_passes and "All" not in selected_passes:
+                    pass_str = " and ".join(selected_passes)
+                    valid_resorts = [r for r in RESORT_STATIONS if _pass_filter(r, selected_passes)]
+                    trip_prompt += f"\n**IMPORTANT**: I have a {pass_str} Pass. You MUST ONLY recommend resorts from this list: {', '.join(valid_resorts)}. Do not recommend any other resorts."
+                else:
+                    trip_prompt += f"\nMy ski pass(es): Any resort is fine"
+
                 trip_prompt += f"\nStarting from: {city_name}"
                 trip_prompt += """
 

@@ -6,7 +6,8 @@
 graph LR
     User(["🎿 User"]) --> UI["Streamlit UI<br/>app.py"]
 
-    UI -->|live conditions + forecast| APIs["External APIs<br/>SNOTEL · COtrip<br/>Open-Meteo · SerpAPI"]
+    UI -->|fetch on page load| APIs["External APIs<br/>SNOTEL · COtrip<br/>Open-Meteo · SerpAPI"]
+    APIs -->|live conditions + forecast| UI
     UI -->|chat question| Agent["ReAct Agent<br/>Claude 3 Haiku"]
 
     Agent -->|Thought → Action → Observe| Tools["6 LangChain Tools"]

@@ -12,8 +12,10 @@ graph LR
 
     Agent -->|Thought → Action → Observe| Tools["6 LangChain Tools"]
 
-    Tools --> APIs
-    Tools --> DB["DuckDB<br/>10yr snow + traffic history"]
+    Tools -->|API calls| APIs
+    APIs -->|Observation| Agent
+    Tools -->|SQL queries| DB["DuckDB<br/>10yr snow + traffic history"]
+    DB -->|Observation| Agent
 
     Agent -->|answer| UI
 ```

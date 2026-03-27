@@ -1,5 +1,26 @@
 # Colorado Powder Oracle — Architecture
 
+## Simple Overview
+
+```mermaid
+graph LR
+    User(["🎿 User"]) --> UI["Streamlit UI<br/>app.py"]
+
+    UI -->|cached snapshots| APIs
+    UI -->|chat question| Agent["ReAct Agent<br/>Claude 3 Haiku"]
+
+    Agent -->|Thought → Action → Observe| Tools["6 LangChain Tools"]
+
+    Tools --> APIs["External APIs<br/>SNOTEL · COtrip · Open-Meteo · SerpAPI"]
+    Tools --> DB["DuckDB<br/>10yr snow + traffic history"]
+
+    Agent -->|answer| UI
+```
+
+---
+
+## Detailed Architecture
+
 ```mermaid
 graph TB
     %% ── User Layer ──────────────────────────────────────────────────

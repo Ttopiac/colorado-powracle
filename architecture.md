@@ -4,20 +4,19 @@
 
 ```mermaid
 graph LR
-    User(["🎿 User"]) --> UI["Streamlit UI<br/>app.py"]
+    User(["🎿 User"]) --> UI["Streamlit UI"]
 
-    UI -->|fetch on page load| APIs["External APIs<br/>SNOTEL · COtrip<br/>Open-Meteo · SerpAPI"]
-    APIs -->|live conditions + forecast| UI
-    UI -->|chat question| Agent["ReAct Agent<br/>Claude 3 Haiku"]
+    UI -->|fetch| APIs["External APIs<br/>SNOTEL · COtrip<br/>Open-Meteo · SerpAPI"]
+    APIs -->|conditions + forecast| UI
 
-    Agent -->|Thought → Action → Observe| Tools["6 LangChain Tools"]
-
-    Tools -->|API calls| APIs
-    APIs -->|Observation| Agent
-    Tools -->|SQL queries| DB["DuckDB<br/>10yr snow + traffic history"]
-    DB -->|Observation| Agent
-
+    UI -->|question| Agent["ReAct Agent<br/>Claude 3 Haiku"]
     Agent -->|answer| UI
+
+    Agent -->|call| Tools["6 Tools"]
+    Tools -->|query| APIs
+    Tools -->|query| DB["DuckDB"]
+    APIs -->|observation| Agent
+    DB -->|observation| Agent
 ```
 
 ---

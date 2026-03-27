@@ -57,3 +57,5 @@ eval/results/
 !.github/pull_request_template.md
 !eval/baselines/*.md
 !.claude/skills/**/*.md
+!ONBOARDING.md
+!architecture.md

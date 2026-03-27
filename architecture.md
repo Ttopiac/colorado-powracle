@@ -6,12 +6,12 @@
 graph LR
     User(["🎿 User"]) --> UI["Streamlit UI<br/>app.py"]
 
-    UI -->|cached snapshots| APIs
+    UI -->|live conditions + forecast| APIs["External APIs<br/>SNOTEL · COtrip<br/>Open-Meteo · SerpAPI"]
     UI -->|chat question| Agent["ReAct Agent<br/>Claude 3 Haiku"]
 
     Agent -->|Thought → Action → Observe| Tools["6 LangChain Tools"]
 
-    Tools --> APIs["External APIs<br/>SNOTEL · COtrip · Open-Meteo · SerpAPI"]
+    Tools --> APIs
     Tools --> DB["DuckDB<br/>10yr snow + traffic history"]
 
     Agent -->|answer| UI

@@ -5,7 +5,7 @@
 - `prompts.py` — `SYSTEM_PROMPT` string
 
 ## agent.py — build_agent(verbose=False)
-Returns a LangChain `AgentExecutor` using the `zero-shot-react-description` strategy.
+Returns a LangChain agent using `create_agent()` from `langchain.agents`.
 
 ```python
 llm = ChatOpenAI(
@@ -18,7 +18,7 @@ llm = ChatOpenAI(
 
 **Why OpenRouter?** Routes to Claude 3 Haiku at lower cost than direct Anthropic API. Uses the `langchain-openai` compatible interface.
 
-**`handle_parsing_errors=True`** — prevents the agent from crashing on malformed LLM output; it retries automatically.
+**`_PrettyCallback`** — custom callback handler that prints Thought/Action/Observation in colored terminal output when `verbose=True`. Safely handles malformed LLM output via try/except around `ast.literal_eval`.
 
 **Current tools list** (order matters for agent priority):
 1. `current_snowpack_tool`
@@ -61,7 +61,15 @@ Then update `SYSTEM_PROMPT` in `prompts.py`.
 - Adding a new resort: add to the resort list with its corridor and pass
 - Observing the agent making systematic errors: add a corrective rule
 
+## app.py integration
+The Streamlit app injects context before each agent call:
+- Live snowpack snapshot for all 19 resorts
+- Weekend forecast snapshot (or full 7-day forecast for trip planning queries)
+- Pass filter restrictions (if user has selected IKON/EPIC/INDY)
+- Last 3 conversation exchanges as memory
+- For trip planner: distances from starting city + traffic tips
+
 ## LangChain version notes
 Uses `langchain-classic==1.0.1` — a compatibility layer for LangChain 1.x API.
-`initialize_agent` and `AgentExecutor` are imported from `langchain` (not `langchain_core`).
-Do **not** upgrade to LangChain 0.2+ without testing — the agent API changed significantly.
+`create_agent` is imported from `langchain.agents`.
+Do **not** upgrade `langchain` or `langchain-classic` without full regression testing — the agent API changed significantly.

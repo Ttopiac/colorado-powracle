@@ -16,7 +16,7 @@ Each file wraps one or more data-fetching functions as LangChain `Tool` objects 
 - Keywords `above average` / `below average` / `this season` → compares current year vs 10yr avg
 - Default → monthly averages for "best month to ski X" queries
 
-**Resort name fuzzy matching:** converts input to lowercase, strips common suffixes ("mountain", "ski area", etc.), then scans `RESORT_STATIONS` keys for a substring match.
+**Resort name matching:** `_clean()` strips whitespace and surrounding quotes from LLM input, then does case-insensitive substring match against `RESORT_STATIONS` keys (e.g., `"steamboat"` matches `"Steamboat Springs"`).
 
 ### search_tools.py
 | Tool name | LangChain object | Input | Output |

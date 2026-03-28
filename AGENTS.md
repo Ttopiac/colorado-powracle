@@ -21,7 +21,7 @@ Built as a Big Data Architecture project using:
 ## Project layout
 ```
 colorado_powder_oracle/
-├── app.py              # Streamlit UI (509 lines) — left panel conditions, right panel chat
+├── app.py              # Streamlit UI — left panel conditions, right panel chat
 ├── resorts.py          # RESORT_STATIONS dict: 19 resorts, station IDs, corridors, pass info
 ├── agent/
 │   ├── agent.py        # build_agent() — assembles LLM + 6 tools
@@ -137,8 +137,20 @@ COTRIP_API_KEY=...
 ### If the UI changed (`app.py`)
 - `streamlit run app.py` renders without errors or layout breakage
 - Describe what changed and why in the PR description
+- Update `CLAUDE.md` UI details section to document new features
 
 ### Documentation (always update alongside code)
 - `CLAUDE.md` and `AGENTS.md` reflect any architectural changes
 - Relevant subdirectory `CLAUDE.md` updated if module behaviour changed
+
+## UI features (app.py)
+- **Map**: Plotly Scattermapbox with ESRI World Topo tiles, two-layer markers (pass-colored halo + snow colorscale fill), collapsible expander
+- **Resort cards**: 19 resorts with pass badges, distance from starting city, 72h new snow + base depth
+- **Sort options**: Fresh Snow / Base Snow / Distance / AI Pick
+- **Snowfall toggle**: CSS snowflake animation, toggled via checkbox in header (uses `@st.fragment` to avoid full page rerun)
+- **Today's Leaders banner**: most fresh snow, best base depth, closest powder resort (6"+)
+- **Quick filter chips**: 4 checkboxes — 6"+ powder (72h), 50"+ base, <100mi distance, 4"+ weekend forecast. Logic in `_apply_quick_filters()`
+- **Smart Trip Planner**: collapsible expander with date picker, day slider (1–7), lodging preference, and notes. Generates multi-day itinerary prompt. Uses `load_7day_forecasts()` (cached 3hr) for full 7-day Open-Meteo forecast, injects distances + traffic tips into agent context
+- **Chat**: `st.chat_input` + `st.chat_message`, last 3 exchanges passed as conversation memory, live snapshot injected per turn
+- **Theme**: Mountain Stone (`#383f4a` / `#424e5c`)
 

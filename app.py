@@ -239,6 +239,26 @@ def _pass_filter(resort: str, selected: list[str]) -> bool:
     return any(p in _resort_passes(resort) for p in selected)
 
 
+def _apply_quick_filters(
+    visible: dict, forecasts: dict,
+    user_lat: float, user_lon: float,
+) -> dict:
+    """Apply the 4 quick-filter checkboxes to a visible-resort dict."""
+    if st.session_state.get("filter_powder", False):
+        visible = {r: d for r, d in visible.items() if d and d.get("new_snow_72h", 0) >= 6}
+    if st.session_state.get("filter_base", False):
+        visible = {r: d for r, d in visible.items() if d and d.get("snow_depth_in", 0) >= 50}
+    if st.session_state.get("filter_distance", False):
+        visible = {r: d for r, d in visible.items()
+                   if _haversine_miles(user_lat, user_lon,
+                                       RESORT_STATIONS[r]["lat"],
+                                       RESORT_STATIONS[r]["lon"]) < 100}
+    if st.session_state.get("filter_forecast", False) and forecasts:
+        visible = {r: d for r, d in visible.items()
+                   if forecasts.get(r) and forecasts[r].get("weekend_total_in", 0) >= 4}
+    return visible
+
+
 # ── Location + visual constants ───────────────────────────────────────────────
 
 _STARTING_CITIES = {
@@ -351,21 +371,7 @@ if not _first_load:
     conditions    = st.session_state.conditions
     forecasts     = st.session_state.forecasts
     visible       = {r: d for r, d in conditions.items() if _pass_filter(r, selected_passes)}
-
-    # Apply quick filters from session state (if they exist)
-    if st.session_state.get("filter_powder", False):
-        visible = {r: d for r, d in visible.items() if d and d.get("new_snow_72h", 0) >= 6}
-    if st.session_state.get("filter_base", False):
-        visible = {r: d for r, d in visible.items() if d and d.get("snow_depth_in", 0) >= 50}
-    if st.session_state.get("filter_distance", False):
-        visible = {r: d for r, d in visible.items() if _haversine_miles(
-            user_lat, user_lon,
-            RESORT_STATIONS[r]["lat"],
-            RESORT_STATIONS[r]["lon"]
-        ) < 100}
-    if st.session_state.get("filter_forecast", False) and forecasts:
-        visible = {r: d for r, d in visible.items() if forecasts.get(r) and forecasts[r].get("weekend_total_in", 0) >= 4}
-
+    visible       = _apply_quick_filters(visible, forecasts, user_lat, user_lon)
     vis_names     = list(visible.keys())
     _use_base_map = sort_by == "🏔️ Base Snow"
     _map_field    = "snow_depth_in" if _use_base_map else "new_snow_72h"
@@ -644,20 +650,7 @@ with col_left:
     else:
         # Recalculate visible with current widget values (user may have changed filter)
         visible = {r: d for r, d in conditions.items() if _pass_filter(r, selected_passes)}
-
-        # Apply quick filters
-        if powder_filter:
-            visible = {r: d for r, d in visible.items() if d and d.get("new_snow_72h", 0) >= 6}
-        if base_filter:
-            visible = {r: d for r, d in visible.items() if d and d.get("snow_depth_in", 0) >= 50}
-        if distance_filter:
-            visible = {r: d for r, d in visible.items() if _haversine_miles(
-                user_lat, user_lon,
-                RESORT_STATIONS[r]["lat"],
-                RESORT_STATIONS[r]["lon"]
-            ) < 100}
-        if forecast_filter and forecasts:
-            visible = {r: d for r, d in visible.items() if forecasts.get(r) and forecasts[r].get("weekend_total_in", 0) >= 4}
+        visible = _apply_quick_filters(visible, forecasts, user_lat, user_lon)
 
         _use_base_map = sort_by == "🏔️ Base Snow"
         _map_scale    = 0.2 if _use_base_map else 2

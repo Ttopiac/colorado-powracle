@@ -63,6 +63,10 @@ Do NOT use system Python or base Anaconda.
 - Two-layer markers: halo (pass color) + fill (snow colorscale)
 - Collapsible map expander, 2-column layout (conditions | chat)
 - Sort options: Fresh Snow / Base Snow / Distance / AI Pick
+- Snowfall toggle: CSS snowflake animation, toggled via checkbox in header (uses `@st.fragment` to avoid full page rerun)
+- Today's Leaders banner: shows most fresh snow, best base depth, and closest powder resort (6"+)
+- Quick filter chips: 4 checkboxes to filter resort list — 6"+ powder (72h), 50"+ base, <100mi distance, 4"+ weekend forecast. Logic lives in `_apply_quick_filters()`.
+- Smart Trip Planner: collapsible expander with date picker, day slider (1–7), lodging preference, and notes. Generates a multi-day itinerary prompt sent to the agent. Uses `load_7day_forecasts()` (cached 3hr) for full 7-day Open-Meteo forecast, and injects distances + traffic tips into the agent context.
 - Theme: Mountain Stone (`#383f4a` / `#424e5c`)
 
 ## Extension roadmap

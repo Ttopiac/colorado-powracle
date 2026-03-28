@@ -120,10 +120,16 @@ Then open [http://localhost:8501](http://localhost:8501) in your browser.
 - **My pass(es):** Filter resorts to only those on your IKON, EPIC, or INDY pass.
 - **Starting from:** Select your departure city (Denver, Boulder, Colorado Springs, etc.) to see drive distances.
 - **Sort by:** Order resorts by Fresh Snow (72h), Base Depth, Distance, or let the AI pick for you.
+- **Today's Leaders:** Banner highlighting the resort with the most fresh snow, deepest base, and closest powder (6"+).
+- **Quick Filters:** Checkbox chips to narrow the list — 6"+ powder, 50"+ base, <100mi, 4"+ weekend forecast.
+- **Snowfall Effect:** Toggle a CSS snowfall animation for ambiance.
 - Each resort card shows a colored dot (white = low snow → deep blue = deep snow), new snow in the last 72 hours, base depth, and drive distance.
 
 ### Map (collapsible)
 Click **Show Resort Map** to open an interactive map of all resorts. Dot color encodes snow level. Dot ring color encodes pass type (blue = IKON, purple = EPIC, green = INDY). Hover over any dot for details.
+
+### Smart Trip Planner (collapsible)
+Plan a multi-day ski trip: pick a start date, number of days (1–7), lodging preference, and any notes. The AI generates a day-by-day itinerary with resort recommendations, forecasted snow, drive times, and departure timing.
 
 ### Right Panel — Ask the Oracle
 Type any ski-related question in plain English. The Oracle calls its tools, consults real data, and returns a grounded answer with specific numbers.
@@ -197,6 +203,7 @@ Type any ski-related question in plain English. The Oracle calls its tools, cons
 | SerpAPI web search | `web_search` | Lift status, forecasts, general fallback | Real-time |
 | [COtrip REST API](https://manage-api.cotrip.org/login) (Colorado DOT) | `get_live_traffic` | Live road incidents, chain laws, surface conditions | Real-time |
 | CDOT Historical Traffic → DuckDB | `get_best_departure_time` | 10 years of hourly traffic volumes on I-70, US-40, US-285 | Static |
+| [Open-Meteo API](https://open-meteo.com/) | `get_snow_forecast` | 7-day snowfall forecast (HRRR model, no key required) | Real-time |
 
 ---
 
@@ -234,6 +241,7 @@ Type any ski-related question in plain English. The Oracle calls its tools, cons
 - **Historical snow data**: Apache Parquet + DuckDB (40,780 rows, 2015–2024)
 - **Live road conditions**: COtrip REST API (Colorado DOT)
 - **Historical traffic data**: CDOT traffic volumes → DuckDB
+- **Snow forecast**: Open-Meteo API (HRRR model, no key required)
 - **Web search**: SerpAPI
 - **UI**: Streamlit + Plotly
 - **Map tiles**: ESRI World Topo Map

@@ -296,6 +296,8 @@ if "start_city" not in st.session_state:
     st.session_state.start_city = "Denver"
 if "sort_by" not in st.session_state:
     st.session_state.sort_by = "🌨️ Fresh Snow"
+if "quick_filters" not in st.session_state:
+    st.session_state.quick_filters = []
 if "snowfall_enabled" not in st.session_state:
     st.session_state.snowfall_enabled = False
 
@@ -320,6 +322,21 @@ if not _first_load:
     conditions    = st.session_state.conditions
     forecasts     = st.session_state.forecasts
     visible       = {r: d for r, d in conditions.items() if _pass_filter(r, selected_passes)}
+
+    # Apply quick filters from session state (if they exist)
+    if st.session_state.get("filter_powder", False):
+        visible = {r: d for r, d in visible.items() if d and d.get("new_snow_72h", 0) >= 6}
+    if st.session_state.get("filter_base", False):
+        visible = {r: d for r, d in visible.items() if d and d.get("snow_depth_in", 0) >= 50}
+    if st.session_state.get("filter_distance", False):
+        visible = {r: d for r, d in visible.items() if _haversine_miles(
+            user_lat, user_lon,
+            RESORT_STATIONS[r]["lat"],
+            RESORT_STATIONS[r]["lon"]
+        ) < 100}
+    if st.session_state.get("filter_forecast", False) and forecasts:
+        visible = {r: d for r, d in visible.items() if forecasts.get(r) and forecasts[r].get("weekend_total_in", 0) >= 4}
+
     vis_names     = list(visible.keys())
     _use_base_map = sort_by == "🏔️ Base Snow"
     _map_field    = "snow_depth_in" if _use_base_map else "new_snow_72h"
@@ -491,6 +508,56 @@ with col_left:
 
     snowfall_toggle()
 
+    # ── Today's Leaders banner ────────────────────────────────────────────
+    if not _first_load:
+        # Find today's leaders
+        valid_resorts = {r: d for r, d in conditions.items() if d is not None}
+
+        # Most fresh snow (72h)
+        if valid_resorts:
+            top_fresh = max(valid_resorts.items(), key=lambda x: x[1].get("new_snow_72h", 0))
+            top_fresh_name = top_fresh[0]
+            top_fresh_val = top_fresh[1].get("new_snow_72h", 0)
+
+            # Best base
+            top_base = max(valid_resorts.items(), key=lambda x: x[1].get("snow_depth_in", 0))
+            top_base_name = top_base[0]
+            top_base_val = top_base[1].get("snow_depth_in", 0)
+
+            # Closest powder (6"+ new snow, sorted by distance)
+            powder_resorts = [(r, d) for r, d in valid_resorts.items() if d.get("new_snow_72h", 0) >= 6]
+            if powder_resorts:
+                closest_powder = min(powder_resorts, key=lambda x: _haversine_miles(
+                    user_lat, user_lon,
+                    RESORT_STATIONS[x[0]]["lat"],
+                    RESORT_STATIONS[x[0]]["lon"]
+                ))
+                closest_powder_name = closest_powder[0]
+                closest_powder_dist = _haversine_miles(
+                    user_lat, user_lon,
+                    RESORT_STATIONS[closest_powder_name]["lat"],
+                    RESORT_STATIONS[closest_powder_name]["lon"]
+                )
+                closest_powder_snow = closest_powder[1].get("new_snow_72h", 0)
+                closest_powder_text = f"{closest_powder_name} ({closest_powder_snow:.0f}\" · {closest_powder_dist:.0f}mi)"
+            else:
+                closest_powder_text = "None (6\"+ needed)"
+
+            st.markdown(f'''
+            <div style="background:linear-gradient(135deg, rgba(41,182,246,0.08), rgba(167,139,250,0.08));
+                        border:1px solid rgba(99,179,237,0.2);
+                        border-radius:10px;
+                        padding:10px 12px;
+                        margin-bottom:12px;">
+                <div style="font-size:0.78rem;font-weight:600;opacity:0.6;margin-bottom:6px;letter-spacing:0.05em;">TODAY'S LEADERS</div>
+                <div style="display:flex;flex-direction:column;gap:4px;font-size:0.88rem;">
+                    <div>🥇 Fresh: <strong>{top_fresh_name}</strong> ({top_fresh_val:.0f}")</div>
+                    <div>🏔️ Base: <strong>{top_base_name}</strong> ({top_base_val:.0f}")</div>
+                    <div>📍 Closest powder: <strong>{closest_powder_text}</strong></div>
+                </div>
+            </div>
+            ''', unsafe_allow_html=True)
+
     selected_passes = st.multiselect(
         "My pass(es):",
         options=["All"] + _ALL_PASSES,
@@ -514,6 +581,24 @@ with col_left:
         key="sort_by",
     )
 
+    # ── Quick filter chips ────────────────────────────────────────────────
+    st.markdown('<div style="margin-top:8px;margin-bottom:8px;">', unsafe_allow_html=True)
+    filter_cols = st.columns(4)
+
+    with filter_cols[0]:
+        powder_filter = st.checkbox("⚡ 6\"+ (72h)", key="filter_powder", help="Show only powder days (6\"+ in 72h)")
+    with filter_cols[1]:
+        base_filter = st.checkbox("🏔️ 50\"+ base", key="filter_base", help="Show only strong base depth (50\"+)")
+    with filter_cols[2]:
+        distance_filter = st.checkbox("📍 <100mi", key="filter_distance", help="Show only nearby resorts")
+    with filter_cols[3]:
+        if not _first_load and 'forecasts' in st.session_state:
+            forecast_filter = st.checkbox("🔮 4\"+ wknd", key="filter_forecast", help="Show only resorts with 4\"+ weekend forecast")
+        else:
+            forecast_filter = False
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
     st.markdown(
         '<div style="display:flex;align-items:center;gap:8px;margin:6px 0 4px 0;">'
         '<span style="font-size:1.15rem;font-weight:700;letter-spacing:-0.01em;">❄️ Live Conditions</span>'
@@ -530,6 +615,20 @@ with col_left:
     else:
         # Recalculate visible with current widget values (user may have changed filter)
         visible = {r: d for r, d in conditions.items() if _pass_filter(r, selected_passes)}
+
+        # Apply quick filters
+        if powder_filter:
+            visible = {r: d for r, d in visible.items() if d and d.get("new_snow_72h", 0) >= 6}
+        if base_filter:
+            visible = {r: d for r, d in visible.items() if d and d.get("snow_depth_in", 0) >= 50}
+        if distance_filter:
+            visible = {r: d for r, d in visible.items() if _haversine_miles(
+                user_lat, user_lon,
+                RESORT_STATIONS[r]["lat"],
+                RESORT_STATIONS[r]["lon"]
+            ) < 100}
+        if forecast_filter and forecasts:
+            visible = {r: d for r, d in visible.items() if forecasts.get(r) and forecasts[r].get("weekend_total_in", 0) >= 4}
 
         _use_base_map = sort_by == "🏔️ Base Snow"
         _map_scale    = 0.2 if _use_base_map else 2

@@ -5,6 +5,7 @@ Run: streamlit run app.py  (from project root, with conda env active)
 
 from concurrent.futures import ThreadPoolExecutor as _TPE
 from agent.agent import build_agent
+from agent.chat_service import run_chat_turn
 from ingestion.snotel_live import fetch_current_snowpack, fetch_all_snowpack
 from ingestion.openmeteo_forecast import get_weekend_snowfall
 from resorts import RESORT_STATIONS
@@ -924,55 +925,26 @@ if prompt and not _first_load:
             with st.spinner("Checking the snowpack..."):
                 print(f"\n\033[1mQuestion:\033[0m {prompt}")
 
-                # Pass the last 3 exchanges (6 messages) as conversation memory.
-                # Older turns are dropped to keep context costs bounded.
-                # Only the current question gets the full live snapshot injected.
-                # exclude just-appended user msg
-                _history = st.session_state.messages[:-1]
-                # last 3 exchanges = 6 messages
-                _recent = _history[-6:]
-                _conv = [
-                    ("human" if m["role"] ==
-                     "user" else "assistant", m["content"])
-                    for m in _recent
-                ]
-                _conv.append(("human", agent_prompt))
-                result = st.session_state.agent.invoke({"messages": _conv})
-                response = result["messages"][-1].content
+                chat_result = run_chat_turn(
+                    agent=st.session_state.agent,
+                    messages=st.session_state.messages,
+                    agent_prompt=agent_prompt,
+                    resort_names=list(RESORT_STATIONS.keys()),
+                )
 
-            # Extract hidden [RANKING: ...] line and strip it from displayed text
-            _ranking_match = re.search(r'\[RANKING:\s*([^\]]+)\]', response)
-            response_display = re.sub(
-                r'\s*\[RANKING:[^\]]+\]', '', response).strip()
-            st.markdown(response_display)
+                response_display = chat_result["response_display"]
 
-    st.session_state.messages.append(
-        {"role": "assistant", "content": response_display})
+                st.markdown(response_display)
 
-    # Update AI Pick ranking from the explicit hidden ranking line
-    if _ranking_match:
-        _ranked = [r.strip() for r in _ranking_match.group(1).split(',')]
-        # Ensure all resorts are present (append any the agent omitted)
-        for r in RESORT_STATIONS:
-            if r not in _ranked:
-                _ranked.append(r)
-    else:
-        # Fallback: mention-order
-        _lower = response.lower()
-        _mentioned = sorted(
-            [(r, _lower.index(r.lower()))
-             for r in RESORT_STATIONS if r.lower() in _lower],
-            key=lambda x: x[1]
-        )
-        _ranked = [r for r, _ in _mentioned]
-        for r in RESORT_STATIONS:
-            if r not in _ranked:
-                _ranked.append(r)
-    st.session_state["ai_pick_ranking"] = _ranked
+                st.session_state.messages.append(
+                    {"role": "assistant", "content": response_display}
+                )
 
-    # Rerun so the left column reflects the new ranking immediately
-    if sort_by == "🤖 AI Pick":
-        st.rerun()
+                st.session_state["ai_pick_ranking"] = chat_result["ranking"]
+
+                # Rerun so the left column reflects the new ranking immediately
+                if sort_by == " AI Pick":
+                    st.rerun()
 
 # ── First load: fetch data, fill cards placeholder, then rerun to show map ────
 

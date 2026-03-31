@@ -11,3 +11,5 @@ requests
 streamlit
 plotly
 google-search-results
+fastapi
+uvicorn

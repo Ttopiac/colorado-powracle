@@ -218,6 +218,7 @@ def show_profile_page():
             'pass_type': p.pass_type,
             'pass_tier': p.pass_tier,
             'purchase_price': p.purchase_price,
+            'day_ticket_price': p.day_ticket_price,
             'valid_from': p.valid_from,
             'valid_until': p.valid_until,
             'days_used': p.days_used
@@ -229,6 +230,8 @@ def show_profile_page():
                 col1, col2 = st.columns(2)
                 with col1:
                     st.write(f"**Purchase Price:** ${pass_obj['purchase_price']:.2f}")
+                    if pass_obj['day_ticket_price']:
+                        st.write(f"**Day Ticket Price:** ${pass_obj['day_ticket_price']:.2f}")
                     st.write(f"**Valid From:** {pass_obj['valid_from']}")
                 with col2:
                     st.write(f"**Valid Until:** {pass_obj['valid_until']}")
@@ -248,12 +251,19 @@ def show_profile_page():
     with st.form("add_pass_form"):
         pass_type = st.selectbox("Pass Type", ["Ikon", "Epic", "Indy", "Powder Alliance"])
         pass_tier = st.selectbox("Pass Tier", ["Base", "Full", "Plus"])
-        purchase_price = st.number_input("Purchase Price ($)", min_value=0.0, value=699.0)
 
         col1, col2 = st.columns(2)
         with col1:
-            valid_from = st.date_input("Valid From", value=datetime(2024, 11, 1).date())
+            purchase_price = st.number_input("Purchase Price ($)", min_value=0.0, value=699.0,
+                                             help="What you paid for the pass")
         with col2:
+            day_ticket_price = st.number_input("Avg Day Ticket Price ($)", min_value=0.0, value=150.0,
+                                               help="Average cost of a day ticket at resorts you'll visit")
+
+        col3, col4 = st.columns(2)
+        with col3:
+            valid_from = st.date_input("Valid From", value=datetime(2024, 11, 1).date())
+        with col4:
             valid_until = st.date_input("Valid Until", value=datetime(2025, 4, 30).date())
 
         if st.form_submit_button("Add Pass", use_container_width=True):
@@ -262,6 +272,7 @@ def show_profile_page():
                 pass_type=pass_type,
                 pass_tier=pass_tier,
                 purchase_price=purchase_price,
+                day_ticket_price=day_ticket_price if day_ticket_price > 0 else None,
                 valid_from=valid_from,
                 valid_until=valid_until,
                 days_used=0

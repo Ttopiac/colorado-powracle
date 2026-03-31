@@ -45,6 +45,7 @@ class UserPass(Base):
     pass_type = Column(String(20), nullable=False)  # IKON, EPIC, INDY
     pass_tier = Column(String(50), nullable=False)  # Full, Base, 4-Day
     purchase_price = Column(Numeric(10, 2), nullable=False)
+    day_ticket_price = Column(Numeric(10, 2))  # Average day ticket price for ROI calculation
     valid_from = Column(Date, nullable=False)
     valid_until = Column(Date, nullable=False)
     days_used = Column(Integer, default=0)

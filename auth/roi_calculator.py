@@ -105,6 +105,7 @@ class ROICalculator:
                         'resorts_visited': [],
                         'unique_resorts': 0,
                         'best_value_day': None,
+                        'best_value_days': [],
                     }
 
                 # Sum up pass costs
@@ -124,31 +125,57 @@ class ROICalculator:
                     TripDay.date <= season_end
                 ).all()
 
-                # Calculate ticket values
+                # Calculate ticket values using pass's day_ticket_price
+                # Use the pass with a day_ticket_price, or fall back to resort lookup
+                pass_ticket_price = None
+                for p in passes:
+                    if p.day_ticket_price:
+                        pass_ticket_price = p.day_ticket_price
+                        break
+
                 total_ticket_value = Decimal(0)
                 resorts_visited = []
                 best_value_day = None
+                best_value_days = []
                 max_value = Decimal(0)
 
                 for day in trip_days:
-                    ticket_value = ROICalculator.calculate_ticket_value(
-                        day.resort_name,
-                        day.date,
-                        season
-                    )
+                    # Use pass's ticket price if available, otherwise look it up
+                    if pass_ticket_price:
+                        ticket_value = pass_ticket_price
+                    else:
+                        ticket_value = ROICalculator.calculate_ticket_value(
+                            day.resort_name,
+                            day.date,
+                            season
+                        )
+
                     total_ticket_value += ticket_value
                     resorts_visited.append(day.resort_name)
+
+                    # Track best value days
+                    best_value_days.append({
+                        'date': day.date,
+                        'resort': day.resort_name,
+                        'value_saved': ticket_value
+                    })
 
                     if ticket_value > max_value:
                         max_value = ticket_value
                         best_value_day = (day.date, day.resort_name, ticket_value)
 
+                # Sort best value days by value saved (descending)
+                best_value_days.sort(key=lambda x: x['value_saved'], reverse=True)
+
                 # Calculate ROI
                 roi = total_ticket_value - total_pass_cost
                 roi_percentage = float((roi / total_pass_cost * 100)) if total_pass_cost > 0 else 0.0
 
-                # Calculate break-even (assuming average ticket price)
-                avg_ticket_price = total_ticket_value / len(trip_days) if trip_days else Decimal(150)
+                # Calculate break-even using pass ticket price or average
+                if pass_ticket_price:
+                    avg_ticket_price = pass_ticket_price
+                else:
+                    avg_ticket_price = total_ticket_value / len(trip_days) if trip_days else Decimal(150)
                 break_even_days = int(total_pass_cost / avg_ticket_price) if avg_ticket_price > 0 else 0
 
                 return {
@@ -161,6 +188,7 @@ class ROICalculator:
                     'resorts_visited': resorts_visited,
                     'unique_resorts': len(set(resorts_visited)),
                     'best_value_day': best_value_day,
+                    'best_value_days': best_value_days,
                 }
 
         except Exception as e:
@@ -175,6 +203,7 @@ class ROICalculator:
                 'resorts_visited': [],
                 'unique_resorts': 0,
                 'best_value_day': None,
+                'best_value_days': [],
             }
 
     @staticmethod

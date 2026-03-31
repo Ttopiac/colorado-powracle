@@ -1,3 +1,9 @@
+"""
+Colorado Powracle — FastAPI chat endpoint.
+Run: uvicorn api:app --reload
+"""
+
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
@@ -8,11 +14,13 @@ from agent.agent import build_agent
 from agent.chat_service import run_chat_turn
 from ingestion.openmeteo_forecast import get_weekend_snowfall
 from ingestion.snotel_live import fetch_all_snowpack
-from resorts import RESORT_STATIONS
+from resorts import RESORT_STATIONS, STARTING_CITIES, pass_filter
 
 
 app = FastAPI(title="Colorado Powracle API")
 
+
+# ── Pydantic models ──────────────────────────────────────────────────────────
 
 class Message(BaseModel):
     role: str
@@ -32,31 +40,32 @@ class ChatResponse(BaseModel):
     raw_response: str
 
 
-_STARTING_CITIES = {
-    "Denver": (39.7392, -104.9903),
-    "Boulder": (40.0150, -105.2705),
-    "Colorado Springs": (38.8339, -104.8214),
-    "Fort Collins": (40.5853, -105.0844),
-    "Pueblo": (38.2544, -104.6091),
-    "Grand Junction": (39.0639, -108.5506),
-}
+# ── Lazy agent init (avoids crash on import if API key is missing) ───────────
+
+_agent = None
 
 
-def _resort_passes(resort: str) -> list[str]:
-    return RESORT_STATIONS[resort].get("pass", [])
+def _get_agent():
+    global _agent
+    if _agent is None:
+        _agent = build_agent(verbose=False)
+    return _agent
 
 
-def _pass_filter(resort: str, selected: list[str]) -> bool:
-    if not selected or "All" in selected:
-        return True
-    return any(p in _resort_passes(resort) for p in selected)
+# ── Cached data loaders (TTL-based, no Streamlit dependency) ─────────────────
 
+_conditions_cache: dict = {"data": None, "expires": 0}
+_forecasts_cache: dict = {"data": None, "expires": 0}
 
-def _allowed_resorts(selected_passes: list[str]) -> list[str]:
-    return [r for r in RESORT_STATIONS if _pass_filter(r, selected_passes)]
+_CONDITIONS_TTL = 1800   # 30 min, same as app.py
+_FORECASTS_TTL = 10800   # 3 hr, same as app.py
 
 
 def _load_conditions() -> dict[str, Any]:
+    now = time.time()
+    if _conditions_cache["data"] is not None and now < _conditions_cache["expires"]:
+        return _conditions_cache["data"]
+
     station_to_resorts: dict[str, list[str]] = {}
     for resort, info in RESORT_STATIONS.items():
         sid = info.get("station_id")
@@ -68,10 +77,17 @@ def _load_conditions() -> dict[str, Any]:
     for triplet, data in batch.items():
         for resort in station_to_resorts.get(triplet, []):
             out[resort] = data
+
+    _conditions_cache["data"] = out
+    _conditions_cache["expires"] = now + _CONDITIONS_TTL
     return out
 
 
 def _load_forecasts() -> dict[str, Any]:
+    now = time.time()
+    if _forecasts_cache["data"] is not None and now < _forecasts_cache["expires"]:
+        return _forecasts_cache["data"]
+
     def _fetch(resort: str, info: dict[str, Any]):
         if not info.get("lat"):
             return resort, None
@@ -86,10 +102,16 @@ def _load_forecasts() -> dict[str, Any]:
         for f in as_completed(futures):
             resort, data = f.result()
             out[resort] = data
+
+    _forecasts_cache["data"] = out
+    _forecasts_cache["expires"] = now + _FORECASTS_TTL
     return out
 
 
-AGENT = build_agent(verbose=True)
+# ── Helpers ──────────────────────────────────────────────────────────────────
+
+def _allowed_resorts(selected_passes: list[str]) -> list[str]:
+    return [r for r in RESORT_STATIONS if pass_filter(r, selected_passes)]
 
 
 def _build_agent_prompt(question: str, selected_passes: list[str]) -> str:
@@ -131,6 +153,8 @@ def _build_agent_prompt(question: str, selected_passes: list[str]) -> str:
     return context + question
 
 
+# ── Endpoints ────────────────────────────────────────────────────────────────
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
@@ -149,7 +173,7 @@ def chat(request: ChatRequest) -> ChatResponse:
     allowed_resorts = _allowed_resorts(request.selected_passes)
 
     chat_result = run_chat_turn(
-        agent=AGENT,
+        agent=_get_agent(),
         messages=messages,
         agent_prompt=agent_prompt,
         resort_names=allowed_resorts,

@@ -14,12 +14,21 @@ Built as a Big Data Architecture project using:
 - **Agent**: LangChain `zero-shot-react-description` via `langchain-classic` (compatibility layer for LangChain 1.x)
 - **LLM**: `anthropic/claude-3-haiku` via OpenRouter
 - **UI**: Streamlit with Plotly Scattermapbox (ESRI World Topo Map tiles), Mountain Stone theme (`#383f4a` / `#424e5c`)
+- **API**: FastAPI (`api.py`) exposes the same chat agent via `POST /chat` and `GET /health`
 
 ## How to run
+### Streamlit UI
 ```bash
 conda activate powracle   # always use this env
 cd /Users/chli4608/Repositories/colorado_powder_oracle
 streamlit run app.py
+```
+
+### FastAPI API
+```bash
+conda activate powracle
+uvicorn api:app --reload
+# Docs at http://127.0.0.1:8000/docs
 ```
 
 ## Key decisions & fixes made during setup

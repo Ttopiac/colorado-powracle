@@ -170,3 +170,28 @@ RESORT_STATIONS = {
         "lat": 39.4678, "lon": -107.3653,
     },
 }
+
+
+# ── Shared helpers (used by app.py and api.py) ───────────────────────────────
+
+ALL_PASSES = ["IKON", "EPIC", "INDY"]
+
+STARTING_CITIES = {
+    "Denver":           (39.7392, -104.9903),
+    "Boulder":          (40.0150, -105.2705),
+    "Colorado Springs": (38.8339, -104.8214),
+    "Fort Collins":     (40.5853, -105.0844),
+    "Pueblo":           (38.2544, -104.6091),
+    "Grand Junction":   (39.0639, -108.5506),
+}
+
+
+def resort_passes(resort: str) -> list[str]:
+    return RESORT_STATIONS[resort].get("pass", [])
+
+
+def pass_filter(resort: str, selected: list[str]) -> bool:
+    """True if resort should be shown given the selected pass list."""
+    if not selected or "All" in selected:
+        return True
+    return any(p in resort_passes(resort) for p in selected)

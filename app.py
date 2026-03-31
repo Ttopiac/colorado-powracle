@@ -283,6 +283,67 @@ def show_profile_page():
             st.success(f"{pass_type} {pass_tier} pass added!")
             st.rerun()
 
+    st.divider()
+
+    # ── Quick Add Ski Days ────────────────────────────────────────────────────
+    st.markdown("### ⛷️ Log Ski Days")
+    st.caption("Quickly log past ski days to track your pass ROI")
+
+    with st.form("add_ski_day_form"):
+        col1, col2 = st.columns(2)
+        with col1:
+            ski_date = st.date_input("Date Skied", value=datetime.now().date(), max_value=datetime.now().date())
+        with col2:
+            # Get list of resorts from RESORT_STATIONS
+            resort_list = sorted(RESORT_STATIONS.keys())
+            resort_skied = st.selectbox("Resort", resort_list)
+
+        notes = st.text_area("Notes (optional)", placeholder="e.g., 'Great powder day!', 'Skied the back bowls'")
+
+        if st.form_submit_button("Log Ski Day", use_container_width=True):
+            # Create a single-day trip for this ski day
+            try:
+                new_trip = Trip(
+                    user_id=user.user_id,
+                    trip_name=f"{resort_skied} - {ski_date.strftime('%b %d')}",
+                    start_date=ski_date,
+                    end_date=ski_date,
+                    total_days=1,
+                    notes=notes if notes.strip() else None
+                )
+
+                with get_db() as db:
+                    db.add(new_trip)
+                    db.commit()
+                    db.refresh(new_trip)
+
+                    # Create trip day already checked in
+                    trip_day = TripDay(
+                        trip_id=new_trip.trip_id,
+                        day_number=1,
+                        date=ski_date,
+                        resort_name=resort_skied,
+                        checked_in=True,
+                        check_in_time=datetime.now()
+                    )
+                    db.add(trip_day)
+                    db.commit()
+
+                    # Update pass days_used
+                    pass_obj = db.query(UserPass).filter(
+                        UserPass.user_id == user.user_id,
+                        UserPass.valid_from <= ski_date,
+                        UserPass.valid_until >= ski_date
+                    ).first()
+                    if pass_obj:
+                        pass_obj.days_used += 1
+                        db.commit()
+
+                st.success(f"Logged ski day at {resort_skied}! Check Season Stats to see your ROI.")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Error logging ski day: {e}")
+
 
 def show_trips_page():
     """Trips page - view trip history and check in to ski days"""
@@ -393,9 +454,21 @@ def show_stats_page():
     # Calculate ROI
     roi_data = ROICalculator.calculate_user_roi(user.user_id, season)
 
-    if not roi_data:
-        st.info("No ski pass data available. Add a ski pass in your Profile to see ROI stats!")
-        return
+    # Debug info
+    with st.expander("🔍 Debug Info", expanded=False):
+        st.write(f"**Season:** {season}")
+        st.write(f"**User ID:** {user.user_id}")
+        st.write(f"**ROI Data:**")
+        st.json({k: str(v) for k, v in roi_data.items()})
+
+    if not roi_data or roi_data['days_skied'] == 0:
+        if roi_data and roi_data['total_pass_cost'] > 0:
+            st.warning("You have a pass but no ski days logged yet. Go to Profile → Log Ski Days to start tracking!")
+        else:
+            st.info("No ski pass data available. Add a ski pass in your Profile to see ROI stats!")
+        # Still show the empty state with zero values
+        if not roi_data:
+            return
 
     # Display ROI metrics
     st.markdown(f"### Season {season}")
@@ -404,12 +477,12 @@ def show_stats_page():
     with col1:
         st.metric("Days Skied", roi_data["days_skied"])
     with col2:
-        st.metric("Pass Cost", f"${roi_data['total_pass_cost']:.2f}")
+        st.metric("Pass Cost", f"${float(roi_data['total_pass_cost']):.2f}")
     with col3:
-        st.metric("Ticket Value", f"${roi_data['total_ticket_value']:.2f}")
+        st.metric("Ticket Value", f"${float(roi_data['total_ticket_value']):.2f}")
     with col4:
         roi_color = "normal" if roi_data["roi"] >= 0 else "inverse"
-        st.metric("ROI", f"${roi_data['roi']:.2f}", delta=f"{roi_data['roi_percentage']:.1f}%")
+        st.metric("ROI", f"${float(roi_data['roi']):.2f}", delta=f"{float(roi_data['roi_percentage']):.1f}%")
 
     # Break-even progress
     st.markdown("### Break-Even Progress")
@@ -419,12 +492,12 @@ def show_stats_page():
     st.caption(f"Need {days_to_break_even} days to break even. {max(0, days_to_break_even - roi_data['days_skied'])} days to go!")
 
     # Best value days
-    if roi_data.get("best_value_days"):
+    if roi_data.get("best_value_days") and len(roi_data["best_value_days"]) > 0:
         st.markdown("### Top Value Days")
         st.caption("Days where you saved the most vs buying a day ticket")
 
         for i, day in enumerate(roi_data["best_value_days"][:5], 1):
-            st.write(f"{i}. **{day['date']}** - {day['resort']} (${day['value_saved']:.2f} saved)")
+            st.write(f"{i}. **{day['date']}** - {day['resort']} (${float(day['value_saved']):.2f} saved)")
 
     # Trip history summary
     with get_db() as db:

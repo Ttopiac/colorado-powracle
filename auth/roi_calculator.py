@@ -87,11 +87,15 @@ class ROICalculator:
 
         try:
             with get_db() as db:
-                # Get user's passes for this season
+                # Calculate season dates first
+                season_start = datetime.strptime(f"{season.split('-')[0]}-11-01", "%Y-%m-%d").date()
+                season_end = datetime.strptime(f"{season.split('-')[1]}-05-31", "%Y-%m-%d").date()
+
+                # Get user's passes for this season (pass must overlap with season dates)
                 passes = db.query(UserPass).filter(
                     UserPass.user_id == user_id,
-                    UserPass.valid_from <= datetime.now().date(),
-                    UserPass.valid_until >= datetime.now().date()
+                    UserPass.valid_from <= season_end,
+                    UserPass.valid_until >= season_start
                 ).all()
 
                 if not passes:
@@ -114,9 +118,6 @@ class ROICalculator:
                 # Get all checked-in trip days for this season
                 # We need to join through trips to filter by season dates
                 from models.user import Trip
-
-                season_start = datetime.strptime(f"{season.split('-')[0]}-11-01", "%Y-%m-%d").date()
-                season_end = datetime.strptime(f"{season.split('-')[1]}-05-31", "%Y-%m-%d").date()
 
                 trip_days = db.query(TripDay).join(Trip).filter(
                     Trip.user_id == user_id,

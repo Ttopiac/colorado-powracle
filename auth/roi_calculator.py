@@ -110,6 +110,8 @@ class ROICalculator:
                         'unique_resorts': 0,
                         'best_value_day': None,
                         'best_value_days': [],
+                        'day_ticket_days': 0,
+                        'total_day_ticket_cost': Decimal(0),
                     }
 
                 # Sum up pass costs
@@ -119,9 +121,20 @@ class ROICalculator:
                 # We need to join through trips to filter by season dates
                 from models.user import Trip
 
+                # Get checked-in trip days where pass was used
                 trip_days = db.query(TripDay).join(Trip).filter(
                     Trip.user_id == user_id,
                     TripDay.checked_in == True,
+                    TripDay.used_pass == True,  # Only count days where pass was used
+                    TripDay.date >= season_start,
+                    TripDay.date <= season_end
+                ).all()
+
+                # Also get day ticket purchases for comparison
+                day_ticket_days = db.query(TripDay).join(Trip).filter(
+                    Trip.user_id == user_id,
+                    TripDay.checked_in == True,
+                    TripDay.used_pass == False,  # Days where day ticket was bought
                     TripDay.date >= season_start,
                     TripDay.date <= season_end
                 ).all()
@@ -168,6 +181,9 @@ class ROICalculator:
                 # Sort best value days by value saved (descending)
                 best_value_days.sort(key=lambda x: x['value_saved'], reverse=True)
 
+                # Calculate day ticket costs
+                total_day_ticket_cost = sum(d.day_ticket_cost or Decimal(0) for d in day_ticket_days)
+
                 # Calculate ROI
                 roi = total_ticket_value - total_pass_cost
                 roi_percentage = float((roi / total_pass_cost * 100)) if total_pass_cost > 0 else 0.0
@@ -190,6 +206,8 @@ class ROICalculator:
                     'unique_resorts': len(set(resorts_visited)),
                     'best_value_day': best_value_day,
                     'best_value_days': best_value_days,
+                    'day_ticket_days': len(day_ticket_days),
+                    'total_day_ticket_cost': total_day_ticket_cost,
                 }
 
         except Exception as e:
@@ -205,6 +223,8 @@ class ROICalculator:
                 'unique_resorts': 0,
                 'best_value_day': None,
                 'best_value_days': [],
+                'day_ticket_days': 0,
+                'total_day_ticket_cost': Decimal(0),
             }
 
     @staticmethod

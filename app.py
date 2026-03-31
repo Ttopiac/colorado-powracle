@@ -289,6 +289,17 @@ def show_profile_page():
     st.markdown("### ⛷️ Log Ski Days")
     st.caption("Quickly log past ski days to track your pass ROI")
 
+    # Get all user's passes OUTSIDE the form to avoid detached instance errors
+    with get_db() as db:
+        all_passes_query = db.query(UserPass).filter(UserPass.user_id == user.user_id).all()
+        all_passes = [{
+            'user_pass_id': p.user_pass_id,
+            'pass_type': p.pass_type,
+            'pass_tier': p.pass_tier,
+            'valid_from': p.valid_from,
+            'valid_until': p.valid_until
+        } for p in all_passes_query]
+
     with st.form("add_ski_day_form"):
         col1, col2 = st.columns(2)
         with col1:
@@ -298,9 +309,38 @@ def show_profile_page():
             resort_list = sorted(RESORT_STATIONS.keys())
             resort_skied = st.selectbox("Resort", resort_list)
 
+        # Pass vs Day Ticket selection
+        ticket_type = st.radio(
+            "Ticket Type",
+            ["Used Season Pass", "Bought Day Ticket"],
+            help="Select whether you used a season pass or purchased a day ticket"
+        )
+
+        pass_id_used = None
+        ticket_cost = None
+
+        if ticket_type == "Used Season Pass":
+            if all_passes:
+                pass_options = {f"{p['pass_type']} {p['pass_tier']}": p['user_pass_id'] for p in all_passes}
+                selected_pass = st.selectbox("Which Pass?", list(pass_options.keys()))
+                pass_id_used = pass_options[selected_pass]
+            else:
+                st.warning("No passes found. Add a pass above or select 'Bought Day Ticket'.")
+        else:
+            ticket_cost = st.number_input("Day Ticket Cost ($)", min_value=0.0, value=150.0, step=10.0)
+
         notes = st.text_area("Notes (optional)", placeholder="e.g., 'Great powder day!', 'Skied the back bowls'")
 
         if st.form_submit_button("Log Ski Day", use_container_width=True):
+            # Validate pass is valid for the date if using a pass
+            if ticket_type == "Used Season Pass" and pass_id_used:
+                selected_pass_info = next((p for p in all_passes if p['user_pass_id'] == pass_id_used), None)
+                if selected_pass_info:
+                    if not (selected_pass_info['valid_from'] <= ski_date <= selected_pass_info['valid_until']):
+                        st.error(f"The selected pass is not valid on {ski_date.strftime('%b %d, %Y')}. "
+                                f"Pass is valid from {selected_pass_info['valid_from']} to {selected_pass_info['valid_until']}.")
+                        st.stop()
+
             # Create a single-day trip for this ski day
             try:
                 new_trip = Trip(
@@ -324,20 +364,20 @@ def show_profile_page():
                         date=ski_date,
                         resort_name=resort_skied,
                         checked_in=True,
-                        check_in_time=datetime.now()
+                        check_in_time=datetime.now(),
+                        used_pass=(ticket_type == "Used Season Pass"),
+                        pass_used_id=pass_id_used,
+                        day_ticket_cost=ticket_cost if ticket_type == "Bought Day Ticket" else None
                     )
                     db.add(trip_day)
                     db.commit()
 
-                    # Update pass days_used
-                    pass_obj = db.query(UserPass).filter(
-                        UserPass.user_id == user.user_id,
-                        UserPass.valid_from <= ski_date,
-                        UserPass.valid_until >= ski_date
-                    ).first()
-                    if pass_obj:
-                        pass_obj.days_used += 1
-                        db.commit()
+                    # Update pass days_used only if they used a pass
+                    if ticket_type == "Used Season Pass" and pass_id_used:
+                        pass_obj = db.query(UserPass).filter(UserPass.user_pass_id == pass_id_used).first()
+                        if pass_obj:
+                            pass_obj.days_used += 1
+                            db.commit()
 
                 st.success(f"Logged ski day at {resort_skied}! Check Season Stats to see your ROI.")
                 st.rerun()
@@ -484,7 +524,19 @@ def show_stats_page():
         roi_color = "normal" if roi_data["roi"] >= 0 else "inverse"
         st.metric("ROI", f"${float(roi_data['roi']):.2f}", delta=f"{float(roi_data['roi_percentage']):.1f}%")
 
+    # Day ticket purchases
+    if roi_data.get("day_ticket_days", 0) > 0:
+        st.divider()
+        st.markdown("### 🎫 Day Ticket Purchases")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Days with Day Tickets", roi_data["day_ticket_days"])
+        with col2:
+            st.metric("Total Day Ticket Cost", f"${float(roi_data['total_day_ticket_cost']):.2f}")
+        st.caption("These days didn't use your pass and count as additional costs")
+
     # Break-even progress
+    st.divider()
     st.markdown("### Break-Even Progress")
     days_to_break_even = roi_data.get("break_even_days", 0)
     progress = min(roi_data["days_skied"] / days_to_break_even, 1.0) if days_to_break_even > 0 else 0

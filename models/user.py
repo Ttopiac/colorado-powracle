@@ -106,6 +106,11 @@ class TripDay(Base):
     checked_in = Column(Boolean, default=False)
     check_in_time = Column(DateTime)
 
+    # Pass tracking
+    used_pass = Column(Boolean, default=True)  # True if used a pass, False if bought day ticket
+    pass_used_id = Column(Integer, ForeignKey('user_passes.user_pass_id', ondelete='SET NULL'))  # Which pass was used
+    day_ticket_cost = Column(Numeric(10, 2))  # Cost if bought a day ticket instead
+
     # Ratings
     rating = Column(Integer)
     review = Column(Text)

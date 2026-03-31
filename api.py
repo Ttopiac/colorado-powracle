@@ -48,7 +48,7 @@ _agent = None
 def _get_agent():
     global _agent
     if _agent is None:
-        _agent = build_agent(verbose=False)
+        _agent = build_agent(verbose=True)
     return _agent
 
 

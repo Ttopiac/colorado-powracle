@@ -1,9 +1,3 @@
-"""
-Colorado Powracle — FastAPI chat endpoint.
-Run: uvicorn api:app --reload
-"""
-
-import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
@@ -12,15 +6,14 @@ from pydantic import BaseModel, Field
 
 from agent.agent import build_agent
 from agent.chat_service import run_chat_turn
+from agent.deterministic_answers import try_answer_simple_live_question
 from ingestion.openmeteo_forecast import get_weekend_snowfall
 from ingestion.snotel_live import fetch_all_snowpack
-from resorts import RESORT_STATIONS, STARTING_CITIES, pass_filter
+from resorts import RESORT_STATIONS, pass_filter
 
 
 app = FastAPI(title="Colorado Powracle API")
 
-
-# ── Pydantic models ──────────────────────────────────────────────────────────
 
 class Message(BaseModel):
     role: str
@@ -32,6 +25,7 @@ class ChatRequest(BaseModel):
     messages: list[Message] = Field(default_factory=list)
     selected_passes: list[str] = Field(default_factory=lambda: ["All"])
     start_city: str = "Denver"
+    use_deterministic_simple_answers: bool = False
 
 
 class ChatResponse(BaseModel):
@@ -40,32 +34,27 @@ class ChatResponse(BaseModel):
     raw_response: str
 
 
-# ── Lazy agent init (avoids crash on import if API key is missing) ───────────
-
-_agent = None
-
-
-def _get_agent():
-    global _agent
-    if _agent is None:
-        _agent = build_agent(verbose=True)
-    return _agent
+_STARTING_CITIES = {
+    "Denver": (39.7392, -104.9903),
+    "Boulder": (40.0150, -105.2705),
+    "Colorado Springs": (38.8339, -104.8214),
+    "Fort Collins": (40.5853, -105.0844),
+    "Pueblo": (38.2544, -104.6091),
+    "Grand Junction": (39.0639, -108.5506),
+}
 
 
-# ── Cached data loaders (TTL-based, no Streamlit dependency) ─────────────────
+def _resort_passes(resort: str) -> list[str]:
+    return RESORT_STATIONS[resort].get("pass", [])
 
-_conditions_cache: dict = {"data": None, "expires": 0}
-_forecasts_cache: dict = {"data": None, "expires": 0}
 
-_CONDITIONS_TTL = 1800   # 30 min, same as app.py
-_FORECASTS_TTL = 10800   # 3 hr, same as app.py
+def _pass_filter(resort: str, selected: list[str]) -> bool:
+    if not selected or "All" in selected:
+        return True
+    return any(p in _resort_passes(resort) for p in selected)
 
 
 def _load_conditions() -> dict[str, Any]:
-    now = time.time()
-    if _conditions_cache["data"] is not None and now < _conditions_cache["expires"]:
-        return _conditions_cache["data"]
-
     station_to_resorts: dict[str, list[str]] = {}
     for resort, info in RESORT_STATIONS.items():
         sid = info.get("station_id")
@@ -77,17 +66,10 @@ def _load_conditions() -> dict[str, Any]:
     for triplet, data in batch.items():
         for resort in station_to_resorts.get(triplet, []):
             out[resort] = data
-
-    _conditions_cache["data"] = out
-    _conditions_cache["expires"] = now + _CONDITIONS_TTL
     return out
 
 
 def _load_forecasts() -> dict[str, Any]:
-    now = time.time()
-    if _forecasts_cache["data"] is not None and now < _forecasts_cache["expires"]:
-        return _forecasts_cache["data"]
-
     def _fetch(resort: str, info: dict[str, Any]):
         if not info.get("lat"):
             return resort, None
@@ -102,16 +84,10 @@ def _load_forecasts() -> dict[str, Any]:
         for f in as_completed(futures):
             resort, data = f.result()
             out[resort] = data
-
-    _forecasts_cache["data"] = out
-    _forecasts_cache["expires"] = now + _FORECASTS_TTL
     return out
 
 
-# ── Helpers ──────────────────────────────────────────────────────────────────
-
-def _allowed_resorts(selected_passes: list[str]) -> list[str]:
-    return [r for r in RESORT_STATIONS if pass_filter(r, selected_passes)]
+AGENT = build_agent(verbose=True)
 
 
 def _build_agent_prompt(question: str, selected_passes: list[str]) -> str:
@@ -142,7 +118,7 @@ def _build_agent_prompt(question: str, selected_passes: list[str]) -> str:
 
     if selected_passes and "All" not in selected_passes:
         pass_str = " and ".join(selected_passes)
-        pass_resorts = _allowed_resorts(selected_passes)
+        pass_resorts = [r for r in RESORT_STATIONS if _pass_filter(r, selected_passes)]
         return (
             context
             + f"[User context: I have a {pass_str} Pass. "
@@ -153,8 +129,6 @@ def _build_agent_prompt(question: str, selected_passes: list[str]) -> str:
     return context + question
 
 
-# ── Endpoints ────────────────────────────────────────────────────────────────
-
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
@@ -162,6 +136,22 @@ def health() -> dict[str, str]:
 
 @app.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest) -> ChatResponse:
+    if request.use_deterministic_simple_answers:
+        conditions = _load_conditions()
+        simple_result = try_answer_simple_live_question(
+            question=request.question,
+            conditions=conditions,
+            selected_passes=request.selected_passes,
+            resort_stations=RESORT_STATIONS,
+            pass_filter_fn=pass_filter,
+        )
+        if simple_result is not None:
+            return ChatResponse(
+                answer=simple_result["answer"],
+                ranking=simple_result["ranking"],
+                raw_response=simple_result["answer"],
+            )
+
     agent_prompt = _build_agent_prompt(
         question=request.question,
         selected_passes=request.selected_passes,
@@ -170,19 +160,15 @@ def chat(request: ChatRequest) -> ChatResponse:
     messages = [m.model_dump() for m in request.messages]
     messages.append({"role": "user", "content": request.question})
 
-    allowed_resorts = _allowed_resorts(request.selected_passes)
-
     chat_result = run_chat_turn(
-        agent=_get_agent(),
+        agent=AGENT,
         messages=messages,
         agent_prompt=agent_prompt,
-        resort_names=allowed_resorts,
+        resort_names=list(RESORT_STATIONS.keys()),
     )
-
-    filtered_ranking = [r for r in chat_result["ranking"] if r in allowed_resorts]
 
     return ChatResponse(
         answer=chat_result["response_display"],
-        ranking=filtered_ranking,
+        ranking=chat_result["ranking"],
         raw_response=chat_result["raw_response"],
     )

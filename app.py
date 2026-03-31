@@ -6,6 +6,7 @@ Run: streamlit run app.py  (from project root, with conda env active)
 from concurrent.futures import ThreadPoolExecutor as _TPE
 from agent.agent import build_agent
 from agent.chat_service import run_chat_turn
+from agent.deterministic_answers import try_answer_simple_live_question
 from ingestion.snotel_live import fetch_current_snowpack, fetch_all_snowpack
 from ingestion.openmeteo_forecast import get_weekend_snowfall
 from resorts import RESORT_STATIONS, ALL_PASSES, STARTING_CITIES, resort_passes, pass_filter
@@ -325,6 +326,8 @@ if "quick_filters" not in st.session_state:
     st.session_state.quick_filters = []
 if "snowfall_enabled" not in st.session_state:
     st.session_state.snowfall_enabled = False
+if "use_deterministic_simple_answers" not in st.session_state:
+    st.session_state.use_deterministic_simple_answers = False
 
 # ── First-load detection ───────────────────────────────────────────────────────
 # On first load, conditions are not yet fetched. We render the layout (including
@@ -703,6 +706,12 @@ with col_right:
         "Ask me where to ski, which resort has the best snow, "
         "or how this season compares to average.")
 
+    st.checkbox(
+        "Use deterministic answers for simple factual snow questions",
+        key="use_deterministic_simple_answers",
+        help="When enabled, a narrow set of simple live-data questions (like deepest base or most fresh snow right now) will be answered directly from the data instead of through the LLM.",
+    )
+
     # ── Smart Trip Planner ────────────────────────────────────────────────
     with st.expander("🗓️ Smart Trip Planner", expanded=False):
         st.markdown("Plan a multi-day ski trip with optimal resort recommendations, forecast analysis, and traffic timing.")
@@ -900,22 +909,43 @@ if prompt and not _first_load:
             with st.spinner("Checking the snowpack..."):
                 print(f"\n\033[1mQuestion:\033[0m {prompt}")
 
-                chat_result = run_chat_turn(
-                    agent=st.session_state.agent,
-                    messages=st.session_state.messages,
-                    agent_prompt=agent_prompt,
-                    resort_names=list(RESORT_STATIONS.keys()),
-                )
+                simple_result = None
+                if st.session_state.get("use_deterministic_simple_answers", False) and not _is_trip_plan:
+                    simple_result = try_answer_simple_live_question(
+                        question=prompt,
+                        conditions=conditions,
+                        selected_passes=selected_passes,
+                        resort_stations=RESORT_STATIONS,
+                        pass_filter_fn=pass_filter,
+                    )
 
-                response_display = chat_result["response_display"]
+                if simple_result is not None:
+                    response_display = simple_result["answer"]
 
-                st.markdown(response_display)
+                    st.markdown(response_display)
 
-                st.session_state.messages.append(
-                    {"role": "assistant", "content": response_display}
-                )
+                    st.session_state.messages.append(
+                        {"role": "assistant", "content": response_display}
+                    )
 
-                st.session_state["ai_pick_ranking"] = chat_result["ranking"]
+                    st.session_state["ai_pick_ranking"] = simple_result["ranking"]
+                else:
+                    chat_result = run_chat_turn(
+                        agent=st.session_state.agent,
+                        messages=st.session_state.messages,
+                        agent_prompt=agent_prompt,
+                        resort_names=list(RESORT_STATIONS.keys()),
+                    )
+
+                    response_display = chat_result["response_display"]
+
+                    st.markdown(response_display)
+
+                    st.session_state.messages.append(
+                        {"role": "assistant", "content": response_display}
+                    )
+
+                    st.session_state["ai_pick_ranking"] = chat_result["ranking"]
 
                 # Rerun so the left column reflects the new ranking immediately
                 if sort_by == "🤖 AI Pick":

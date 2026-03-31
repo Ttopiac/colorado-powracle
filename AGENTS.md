@@ -17,14 +17,17 @@ Built as a Big Data Architecture project using:
 - **Agent**: LangChain `zero-shot-react-description` via `langchain-classic`
 - **LLM**: `anthropic/claude-3-haiku` via OpenRouter
 - **UI**: Streamlit + Plotly Scattermapbox (ESRI World Topo tiles), Mountain Stone theme
+- **API**: FastAPI (`api.py`) — `POST /chat` and `GET /health`
 
 ## Project layout
 ```
 colorado_powder_oracle/
 ├── app.py              # Streamlit UI — left panel conditions, right panel chat
-├── resorts.py          # RESORT_STATIONS dict: 19 resorts, station IDs, corridors, pass info
+├── api.py              # FastAPI endpoint — POST /chat, GET /health
+├── resorts.py          # RESORT_STATIONS dict, shared helpers (pass_filter, STARTING_CITIES)
 ├── agent/
 │   ├── agent.py        # build_agent() — assembles LLM + 6 tools
+│   ├── chat_service.py # run_chat_turn() — shared chat logic used by app.py and api.py
 │   └── prompts.py      # SYSTEM_PROMPT — resort knowledge, traffic patterns, decision logic
 ├── tools/
 │   ├── snowpack_tools.py   # get_current_snowpack, get_snowpack_history

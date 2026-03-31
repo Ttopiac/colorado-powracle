@@ -2,6 +2,7 @@
 
 ## What lives here
 - `agent.py` — `build_agent()` factory function
+- `chat_service.py` — `run_chat_turn()` shared helper (used by both `app.py` and `api.py`)
 - `prompts.py` — `SYSTEM_PROMPT` string
 
 ## agent.py — build_agent(verbose=False)

@@ -30,15 +30,17 @@ When ready, open a pull request against `main`. The PR description will auto-pop
 
 The repo ships with context files that explain the architecture, rules, and gotchas. **Read these before writing any code** — they'll save you from the non-obvious mistakes.
 
-| File | Purpose |
-|------|---------|
-| [AGENTS.md](AGENTS.md) | Full project overview, tool contracts, critical rules, module gotchas, pre-merge checklist |
-| [CONTEXT_MIN.md](CONTEXT_MIN.md) | Minimal version of AGENTS.md — just the rules and gotchas, for quick chatbox paste |
-| [CLAUDE.md](CLAUDE.md) | Same as AGENTS.md, extended for Claude Code users |
-| [tools/CLAUDE.md](tools/CLAUDE.md) | How to add a tool, tool contracts, routing logic |
-| [ingestion/CLAUDE.md](ingestion/CLAUDE.md) | Each ingestion script, API quirks, data flow |
-| [db/CLAUDE.md](db/CLAUDE.md) | DuckDB schema, views, when to rebuild |
-| [agent/CLAUDE.md](agent/CLAUDE.md) | Agent architecture, SYSTEM_PROMPT structure, LangChain version notes |
+| File | Purpose | Update when |
+|------|---------|-------------|
+| [CLAUDE.md](CLAUDE.md) | Primary project context for Claude Code | Any architectural or feature change |
+| [AGENTS.md](AGENTS.md) | Project context for Cursor/Windsurf/Copilot (must stay in sync with CLAUDE.md) | Same as CLAUDE.md |
+| [CONTEXT_MIN.md](CONTEXT_MIN.md) | Minimal rules + gotchas for quick chatbox paste | Critical rules or gotchas change |
+| [README.md](README.md) | Public-facing docs, setup guide, feature list | User-facing features, data sources, or tech stack change |
+| [tools/CLAUDE.md](tools/CLAUDE.md) | Tool contracts, routing logic, how to add a tool | Tools added or modified |
+| [ingestion/CLAUDE.md](ingestion/CLAUDE.md) | Ingestion scripts, API quirks, data flow | Ingestion or API changes |
+| [db/CLAUDE.md](db/CLAUDE.md) | DuckDB schema, views, when to rebuild | Schema or view changes |
+| [agent/CLAUDE.md](agent/CLAUDE.md) | Agent architecture, SYSTEM_PROMPT, LangChain notes | Agent logic or prompt changes |
+| [.github/pull_request_template.md](.github/pull_request_template.md) | PR checklist (auto-populates on PR creation) | New checklist items needed |
 
 ---
 
@@ -97,4 +99,5 @@ Key things it checks:
 3. **Never commit secrets.** `.env` is gitignored — keep it that way.
 4. **Never run `db/setup.py` mid-session.** It drops and recreates all tables.
 5. **Every change is additive.** Do not rewrite existing modules — extend them.
-6. **Update the docs alongside the code.** If you change architecture, update [CLAUDE.md](CLAUDE.md), [AGENTS.md](AGENTS.md), and the relevant subdirectory `CLAUDE.md` in the same PR.
+6. **No duplicate logic.** If the same code appears in two places, extract a shared helper function.
+7. **Update ALL relevant docs in the same PR.** Every code change must update the applicable docs listed in section 3 above. The PR template checklist enforces this — reviewers will send back PRs with unchecked doc boxes.

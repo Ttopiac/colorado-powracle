@@ -6,7 +6,9 @@ Scripts that pull data from external sources and write it to `data/raw/`. The `d
 ## Scripts
 
 ### snotel_live.py — real-time snowpack
-**Entry point:** `fetch_current_snowpack(station_triplet: str) -> dict`
+**Entry points:**
+- `fetch_current_snowpack(station_triplet: str) -> dict` — single station fetch
+- `fetch_all_snowpack(station_triplets: list[str]) -> dict[str, dict]` — batch fetch for all stations in one API call (~10x faster)
 
 Hits the USDA NRCS SNOTEL REST API (`/data` endpoint). No API key required.
 
@@ -19,6 +21,9 @@ The code iterates `station.get("data", [])`. If you see empty results, check the
 
 **Elements fetched:** `SNWD` (snow depth, inches) and `WTEQ` (snow water equivalent, inches).
 New snow is computed as a delta: `latest_value - value_N_days_ago`, clipped at 0.
+
+**Timeouts:** 15s for single station, 30s for batch.
+**Error handling:** On any exception, returns zeroed-out dict (single) or empty dict (batch). Never raises.
 
 **Station IDs:** use the format `XXX:CO:SNTL` (network code is `SNTL`, not `SNOTEL`). All valid IDs are in `resorts.py`.
 
@@ -90,6 +95,12 @@ Hits the Open-Meteo API (`https://api.open-meteo.com/v1/forecast`). **No API key
 **Unit conversion:** Open-Meteo returns snowfall in cm. Multiply by 0.3937 to get inches.
 
 **Timezone:** All forecasts use `America/Denver` so Saturday/Sunday detection matches Colorado ski dates.
+
+**Model fallback:** Tries HRRR (3km resolution, NOAA, ~48h range) first. If HRRR returns an error (e.g., forecast_days=7 exceeds its range), falls back to Open-Meteo `best_match` automatically.
+
+**Usage in app.py:**
+- `get_weekend_snowfall()` is called via `load_forecasts()` (cached 30min) for resort card forecast badges
+- `fetch_snow_forecast()` is called via `load_7day_forecasts()` (cached 3hr) for the Smart Trip Planner's full 7-day context
 
 ---
 

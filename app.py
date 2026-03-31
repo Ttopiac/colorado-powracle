@@ -769,7 +769,8 @@ if not _first_load:
 
 # ── Map (full-width, inline — only once data is loaded) ───────────────────────
 
-if not _first_load:
+# Show map on Home page or for guest users (who are always on home)
+if not _first_load and (st.session_state.current_page == "Home" or st.session_state.user == "guest"):
     with st.expander("🗺️ Show Resort Map", expanded=False):
             fig = go.Figure()
 

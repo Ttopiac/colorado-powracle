@@ -28,6 +28,7 @@ colorado_powder_oracle/
 ├── agent/
 │   ├── agent.py        # build_agent() — assembles LLM + 6 tools
 │   ├── chat_service.py # run_chat_turn() — shared chat logic used by app.py and api.py
+│   ├── deterministic_answers.py # optional deterministic path for simple factual questions
 │   └── prompts.py      # SYSTEM_PROMPT — resort knowledge, traffic patterns, decision logic
 ├── tools/
 │   ├── snowpack_tools.py   # get_current_snowpack, get_snowpack_history
@@ -155,5 +156,6 @@ COTRIP_API_KEY=...
 - **Quick filter chips**: 4 checkboxes — 6"+ powder (72h), 50"+ base, <100mi distance, 4"+ weekend forecast. Logic in `_apply_quick_filters()`
 - **Smart Trip Planner**: collapsible expander with date picker, day slider (1–7), lodging preference, and notes. Generates multi-day itinerary prompt. Uses `load_7day_forecasts()` (cached 3hr) for full 7-day Open-Meteo forecast, injects distances + traffic tips into agent context
 - **Chat**: `st.chat_input` + `st.chat_message`, last 3 exchanges passed as conversation memory, live snapshot injected per turn
+- **Deterministic answers toggle**: optional checkbox — answers simple factual live-data questions (most fresh snow, deepest base) directly from data without LLM. Logic in `agent/deterministic_answers.py`
 - **Theme**: Mountain Stone (`#383f4a` / `#424e5c`)
 

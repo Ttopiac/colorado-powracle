@@ -12,9 +12,10 @@ from pydantic import BaseModel, Field
 
 from agent.agent import build_agent
 from agent.chat_service import run_chat_turn
+from agent.deterministic_answers import try_answer_simple_live_question
 from ingestion.openmeteo_forecast import get_weekend_snowfall
 from ingestion.snotel_live import fetch_all_snowpack
-from resorts import RESORT_STATIONS, STARTING_CITIES, pass_filter
+from resorts import RESORT_STATIONS, STARTING_CITIES, pass_filter, haversine_miles
 
 
 app = FastAPI(title="Colorado Powracle API")
@@ -32,6 +33,7 @@ class ChatRequest(BaseModel):
     messages: list[Message] = Field(default_factory=list)
     selected_passes: list[str] = Field(default_factory=lambda: ["All"])
     start_city: str = "Denver"
+    use_deterministic_simple_answers: bool = False
 
 
 class ChatResponse(BaseModel):
@@ -114,23 +116,24 @@ def _allowed_resorts(selected_passes: list[str]) -> list[str]:
     return [r for r in RESORT_STATIONS if pass_filter(r, selected_passes)]
 
 
-def _build_agent_prompt(question: str, selected_passes: list[str]) -> str:
+
+def _build_agent_prompt(question: str, selected_passes: list[str], start_city: str) -> str:
     conditions = _load_conditions()
     forecasts = _load_forecasts()
 
     cond_snapshot = "\n".join(
-        f"  - {r}: {conditions[r].get('new_snow_72h', 0):.1f}\" new (72h), "
-        f"{conditions[r].get('new_snow_48h', 0):.1f}\" new (48h), "
-        f"{conditions[r].get('new_snow_24h', 0):.1f}\" new (24h), "
-        f"{conditions[r].get('snow_depth_in', 0):.1f}\" base"
+        f'  - {r}: {conditions[r].get("new_snow_72h", 0):.1f}" new (72h), '
+        f'{conditions[r].get("new_snow_48h", 0):.1f}" new (48h), '
+        f'{conditions[r].get("new_snow_24h", 0):.1f}" new (24h), '
+        f'{conditions[r].get("snow_depth_in", 0):.1f}" base'
         if conditions.get(r) else f"  - {r}: no live data"
         for r in RESORT_STATIONS
     )
 
     forecast_snapshot = "\n".join(
-        f"  - {r}: Sat {forecasts[r]['saturday_snow_in']:.1f}\" / "
-        f"Sun {forecasts[r]['sunday_snow_in']:.1f}\" / "
-        f"weekend total {forecasts[r]['weekend_total_in']:.1f}\""
+        f'  - {r}: Sat {forecasts[r]["saturday_snow_in"]:.1f}" / '
+        f'Sun {forecasts[r]["sunday_snow_in"]:.1f}" / '
+        f'weekend total {forecasts[r]["weekend_total_in"]:.1f}"'
         if forecasts.get(r) else f"  - {r}: no forecast"
         for r in RESORT_STATIONS
     )
@@ -139,6 +142,20 @@ def _build_agent_prompt(question: str, selected_passes: list[str]) -> str:
         f"[Live snowpack for all resorts right now:\n{cond_snapshot}]\n\n"
         f"[Weekend snowfall forecast (Open-Meteo):\n{forecast_snapshot}]\n\n"
     )
+
+    if start_city in STARTING_CITIES:
+        user_lat, user_lon = STARTING_CITIES[start_city]
+        distance_snapshot = "\n".join(
+            f"  - {r}: {haversine_miles(user_lat, user_lon, RESORT_STATIONS[r]['lat'], RESORT_STATIONS[r]['lon']):.0f} mi from {start_city}"
+            for r in RESORT_STATIONS
+            if RESORT_STATIONS[r].get("lat") is not None and RESORT_STATIONS[r].get("lon") is not None
+        )
+        context += (
+            f"[User context: starting city is {start_city}.\n"
+            f"Distances from {start_city}:\n{distance_snapshot}]\n\n"
+        )
+    else:
+        context += f"[User context: starting city is {start_city}.]\n\n"
 
     if selected_passes and "All" not in selected_passes:
         pass_str = " and ".join(selected_passes)
@@ -162,15 +179,33 @@ def health() -> dict[str, str]:
 
 @app.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest) -> ChatResponse:
+    allowed_resorts = _allowed_resorts(request.selected_passes)
+
+    if request.use_deterministic_simple_answers:
+        conditions = _load_conditions()
+        simple_result = try_answer_simple_live_question(
+            question=request.question,
+            conditions=conditions,
+            selected_passes=request.selected_passes,
+            resort_stations=RESORT_STATIONS,
+            pass_filter_fn=pass_filter,
+        )
+        if simple_result is not None:
+            filtered_ranking = [r for r in simple_result["ranking"] if r in allowed_resorts]
+            return ChatResponse(
+                answer=simple_result["answer"],
+                ranking=filtered_ranking,
+                raw_response=simple_result["answer"],
+            )
+
     agent_prompt = _build_agent_prompt(
         question=request.question,
         selected_passes=request.selected_passes,
+        start_city=request.start_city,
     )
 
     messages = [m.model_dump() for m in request.messages]
     messages.append({"role": "user", "content": request.question})
-
-    allowed_resorts = _allowed_resorts(request.selected_passes)
 
     chat_result = run_chat_turn(
         agent=_get_agent(),

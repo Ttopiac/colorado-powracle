@@ -195,3 +195,16 @@ def pass_filter(resort: str, selected: list[str]) -> bool:
     if not selected or "All" in selected:
         return True
     return any(p in resort_passes(resort) for p in selected)
+
+
+def haversine_miles(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Straight-line great-circle distance in miles."""
+    import math
+
+    R = 3958.8
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = (math.sin(dlat / 2) ** 2
+         + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2))
+         * math.sin(dlon / 2) ** 2)
+    return 2 * R * math.asin(math.sqrt(a))

@@ -77,6 +77,36 @@ Do NOT use system Python or base Anaconda.
 
 Every phase is additive. No existing files need to be rewritten.
 
+## PostgreSQL User Accounts (Optional)
+
+The app supports optional user accounts via PostgreSQL for:
+- Season pass tracking & ROI calculation
+- Trip planning & check-ins
+- Season statistics
+
+### Setup
+```bash
+# Option 1: Docker (recommended)
+docker-compose up -d
+
+# Option 2: Native PostgreSQL
+# Install per OS, then create database
+
+# Add to .env:
+DATABASE_URL=postgresql://powracle_user:password@localhost:5432/powracle
+
+# Run all migrations (idempotent)
+python db/run_migrations.py
+```
+
+### Migrations
+- `db/init_postgres.py` - Create base tables
+- `db/add_ticket_price_to_pass.py` - Add day_ticket_price column
+- `db/add_pass_tracking_to_trip_day.py` - Add pass tracking columns
+- `db/run_migrations.py` - **Run all migrations automatically**
+
+Guest mode is available if PostgreSQL is not configured.
+
 ## Running one-off data commands
 ```bash
 # Re-download historical snow data (only if CSVs are missing)

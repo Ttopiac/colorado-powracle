@@ -104,10 +104,14 @@ docker run -d \
 docker ps
 ```
 
-Or using Docker Compose (a `docker-compose.yml` is included in the project):
+Or using Docker Compose (recommended - a `docker-compose.yml` is included):
 ```bash
-# Edit docker-compose.yml to set your password, then run:
+# 1. Edit docker-compose.yml to set your password (optional for local dev)
+# 2. Start PostgreSQL
 docker-compose up -d
+
+# 3. Verify it's running
+docker ps | grep postgres
 ```
 
 Your DATABASE_URL will be:
@@ -115,15 +119,20 @@ Your DATABASE_URL will be:
 DATABASE_URL=postgresql://powracle_user:your_secure_password@localhost:5432/powracle
 ```
 
-To stop/start the container later:
+**Quick Docker Commands:**
 ```bash
-# Docker CLI
-docker stop powracle-postgres
-docker start powracle-postgres
-
-# Docker Compose
+# Stop/start
 docker-compose stop
 docker-compose start
+
+# View logs
+docker-compose logs -f
+
+# Restart
+docker-compose restart
+
+# Stop and remove (keeps data in volume)
+docker-compose down
 ```
 
 **Option 2: Native Installation**
@@ -174,13 +183,47 @@ DATABASE_URL=postgresql://powracle_user:your_secure_password@localhost:5432/powr
 #### 8d. Run Database Migrations
 
 ```bash
-# Create user tables
-PYTHONPATH=. python db/init_postgres.py
-
-# Add pass tracking columns (if upgrading)
-PYTHONPATH=. python db/add_ticket_price_to_pass.py
-PYTHONPATH=. python db/add_pass_tracking_to_trip_day.py
+# Run all migrations automatically
+python db/run_migrations.py
 ```
+
+This script will:
+- ✅ Check database connection
+- ✅ Create all tables (users, passes, trips, stats, etc.)
+- ✅ Apply all schema updates (pass tracking, ticket prices, etc.)
+- ✅ Skip migrations already applied (safe to run multiple times)
+
+**First-time setup or upgrading?** This script handles both - it's idempotent and will only apply migrations that haven't been run yet.
+
+<details>
+<summary><b>📋 Complete PostgreSQL Setup Example (Docker)</b></summary>
+
+Here's the full workflow from scratch:
+
+```bash
+# 1. Start PostgreSQL with Docker Compose
+docker-compose up -d
+
+# 2. Add DATABASE_URL to your .env file
+echo "DATABASE_URL=postgresql://powracle_user:your_secure_password@localhost:5432/powracle" >> .env
+
+# 3. Run all migrations
+python db/run_migrations.py
+
+# 4. Verify setup
+docker exec powracle-postgres psql -U powracle_user -d powracle -c "\dt"
+
+# 5. Launch the app
+streamlit run app.py
+```
+
+You should see output like:
+```
+[SUCCESS] All migrations completed successfully!
+Your database is ready. You can now run: streamlit run app.py
+```
+
+</details>
 
 #### 8e. User Management Features
 

@@ -1,0 +1,29 @@
+# Colorado Powracle - PostgreSQL Docker Setup
+#
+# IMPORTANT: Change the POSTGRES_PASSWORD below before running in production!
+# This default password is for local development only.
+#
+# Usage:
+#   1. Edit the password below
+#   2. Run: docker-compose up -d
+#   3. Add to .env: DATABASE_URL=postgresql://powracle_user:your_password@localhost:5432/powracle
+#   4. Run migrations: PYTHONPATH=. python db/init_postgres.py
+
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: powracle-postgres
+    environment:
+      POSTGRES_USER: powracle_user
+      POSTGRES_PASSWORD: your_secure_password  # ⚠️ CHANGE THIS!
+      POSTGRES_DB: powracle
+    ports:
+      - "5432:5432"
+    volumes:
+      - powracle-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  powracle-data:

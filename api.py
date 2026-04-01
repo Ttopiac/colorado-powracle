@@ -15,7 +15,7 @@ from agent.chat_service import run_chat_turn
 from agent.deterministic_answers import try_answer_simple_live_question
 from ingestion.openmeteo_forecast import get_weekend_snowfall
 from ingestion.snotel_live import fetch_all_snowpack
-from resorts import RESORT_STATIONS, STARTING_CITIES, pass_filter
+from resorts import RESORT_STATIONS, STARTING_CITIES, pass_filter, haversine_miles
 
 
 app = FastAPI(title="Colorado Powracle API")
@@ -116,20 +116,6 @@ def _allowed_resorts(selected_passes: list[str]) -> list[str]:
     return [r for r in RESORT_STATIONS if pass_filter(r, selected_passes)]
 
 
-def _haversine_miles(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    import math
-
-    R = 3958.8
-    dlat = math.radians(lat2 - lat1)
-    dlon = math.radians(lon2 - lon1)
-    a = (
-        math.sin(dlat / 2) ** 2
-        + math.cos(math.radians(lat1))
-        * math.cos(math.radians(lat2))
-        * math.sin(dlon / 2) ** 2
-    )
-    return 2 * R * math.asin(math.sqrt(a))
-
 
 def _build_agent_prompt(question: str, selected_passes: list[str], start_city: str) -> str:
     conditions = _load_conditions()
@@ -160,7 +146,7 @@ def _build_agent_prompt(question: str, selected_passes: list[str], start_city: s
     if start_city in STARTING_CITIES:
         user_lat, user_lon = STARTING_CITIES[start_city]
         distance_snapshot = "\n".join(
-            f"  - {r}: {_haversine_miles(user_lat, user_lon, RESORT_STATIONS[r]['lat'], RESORT_STATIONS[r]['lon']):.0f} mi from {start_city}"
+            f"  - {r}: {haversine_miles(user_lat, user_lon, RESORT_STATIONS[r]['lat'], RESORT_STATIONS[r]['lon']):.0f} mi from {start_city}"
             for r in RESORT_STATIONS
             if RESORT_STATIONS[r].get("lat") is not None and RESORT_STATIONS[r].get("lon") is not None
         )

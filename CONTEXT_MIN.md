@@ -23,5 +23,6 @@ Two entry points: `app.py` (Streamlit UI), `api.py` (FastAPI `POST /chat`). Both
 - **ingestion/cotrip_live.py**: `summarise_corridor()` returns `None` when API key is absent — the tool catches this, do not change that pattern.
 - **ingestion/**: some resorts share a SNOTEL station and use `.alias` pointer files in `data/raw/snotel/` — do not delete them.
 - **agent/**: uses `langchain-classic==1.0.1`. Do not upgrade without full regression testing.
-- **resorts.py**: shared helpers (`pass_filter`, `STARTING_CITIES`, `ALL_PASSES`) live here — import them, don't duplicate.
-- **api.py**: lazy agent init via `_get_agent()`, TTL-based caching (no Streamlit dependency). `verbose=False` for API usage.
+- **resorts.py**: shared helpers (`pass_filter`, `haversine_miles`, `STARTING_CITIES`, `ALL_PASSES`) live here — import them, don't duplicate.
+- **api.py**: lazy agent init via `_get_agent()`, TTL-based caching (no Streamlit dependency). `verbose=True` for debugging.
+- **agent/deterministic_answers.py**: opt-in deterministic path for simple factual questions. Returns `None` for anything it can't handle → agent fallback.

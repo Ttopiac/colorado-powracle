@@ -9,7 +9,7 @@ from agent.chat_service import run_chat_turn
 from agent.deterministic_answers import try_answer_simple_live_question
 from ingestion.snotel_live import fetch_current_snowpack, fetch_all_snowpack
 from ingestion.openmeteo_forecast import get_weekend_snowfall
-from resorts import RESORT_STATIONS, ALL_PASSES, STARTING_CITIES, resort_passes, pass_filter
+from resorts import RESORT_STATIONS, ALL_PASSES, STARTING_CITIES, resort_passes, pass_filter, haversine_miles
 import plotly.graph_objects as go
 import streamlit as st
 import streamlit.components.v1 as components
@@ -239,24 +239,13 @@ def _apply_quick_filters(
         visible = {r: d for r, d in visible.items() if d and d.get("snow_depth_in", 0) >= 50}
     if st.session_state.get("filter_distance", False):
         visible = {r: d for r, d in visible.items()
-                   if _haversine_miles(user_lat, user_lon,
+                   if haversine_miles(user_lat, user_lon,
                                        RESORT_STATIONS[r]["lat"],
                                        RESORT_STATIONS[r]["lon"]) < 100}
     if st.session_state.get("filter_forecast", False) and forecasts:
         visible = {r: d for r, d in visible.items()
                    if forecasts.get(r) and forecasts[r].get("weekend_total_in", 0) >= 4}
     return visible
-
-
-def _haversine_miles(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Straight-line great-circle distance in miles."""
-    R = 3958.8
-    dlat = math.radians(lat2 - lat1)
-    dlon = math.radians(lon2 - lon1)
-    a = (math.sin(dlat / 2) ** 2
-         + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2))
-         * math.sin(dlon / 2) ** 2)
-    return 2 * R * math.asin(math.sqrt(a))
 
 
 # Map marker style per pass
@@ -380,7 +369,7 @@ if not _first_load:
                            if visible[r] else 0 for r in p_resorts]
                 p_map_vals = [p_bases[i] if _use_base_map else p_snows[i]
                               for i in range(len(p_resorts))]
-                p_dists = [_haversine_miles(user_lat, user_lon,
+                p_dists = [haversine_miles(user_lat, user_lon,
                                             RESORT_STATIONS[r]["lat"], RESORT_STATIONS[r]["lon"])
                            for r in p_resorts]
                 p_texts = [
@@ -541,13 +530,13 @@ with col_left:
             # Closest powder (6"+ new snow, sorted by distance)
             powder_resorts = [(r, d) for r, d in valid_resorts.items() if d.get("new_snow_72h", 0) >= 6]
             if powder_resorts:
-                closest_powder = min(powder_resorts, key=lambda x: _haversine_miles(
+                closest_powder = min(powder_resorts, key=lambda x: haversine_miles(
                     user_lat, user_lon,
                     RESORT_STATIONS[x[0]]["lat"],
                     RESORT_STATIONS[x[0]]["lon"]
                 ))
                 closest_powder_name = closest_powder[0]
-                closest_powder_dist = _haversine_miles(
+                closest_powder_dist = haversine_miles(
                     user_lat, user_lon,
                     RESORT_STATIONS[closest_powder_name]["lat"],
                     RESORT_STATIONS[closest_powder_name]["lon"]
@@ -652,7 +641,7 @@ with col_left:
             def _sort_key(item):
                 resort, d = item
                 if sort_by == "📍 Distance":
-                    return _haversine_miles(
+                    return haversine_miles(
                         user_lat, user_lon,
                         RESORT_STATIONS[resort]["lat"], RESORT_STATIONS[resort]["lon"]
                     )
@@ -665,7 +654,7 @@ with col_left:
         cards_html = []
         for resort, d in _ordered:
             badges = " ".join(_PASS_BADGE[p] for p in resort_passes(resort))
-            dist = _haversine_miles(
+            dist = haversine_miles(
                 user_lat, user_lon,
                 RESORT_STATIONS[resort]["lat"], RESORT_STATIONS[resort]["lon"]
             )
@@ -866,7 +855,7 @@ if prompt and not _first_load:
     # Add traffic/distance context for trip planning
     if _is_trip_plan:
         _distance_info = "\n".join(
-            f"  - {r}: {_haversine_miles(user_lat, user_lon, RESORT_STATIONS[r]['lat'], RESORT_STATIONS[r]['lon']):.0f} mi from {city_name}"
+            f"  - {r}: {haversine_miles(user_lat, user_lon, RESORT_STATIONS[r]['lat'], RESORT_STATIONS[r]['lon']):.0f} mi from {city_name}"
             for r in RESORT_STATIONS
         )
         _traffic_tips = """
@@ -980,7 +969,7 @@ if _first_load:
     _cards_fl = []
     for resort, d in _ordered_fl:
         badges = " ".join(_PASS_BADGE[p] for p in resort_passes(resort))
-        dist = _haversine_miles(
+        dist = haversine_miles(
             user_lat, user_lon,
             RESORT_STATIONS[resort]["lat"], RESORT_STATIONS[resort]["lon"]
         )

@@ -14,8 +14,7 @@ from __future__ import annotations
 import re
 from typing import Any, Callable
 
-
-PASS_NAMES = ("IKON", "EPIC", "INDY")
+from resorts import ALL_PASSES
 
 
 def _normalize(text: str) -> str:
@@ -31,7 +30,7 @@ def _effective_passes(question: str, selected_passes: list[str]) -> list[str]:
     2. Otherwise use the UI / API selected_passes.
     """
     q = question.upper()
-    mentioned = [p for p in PASS_NAMES if p in q]
+    mentioned = [p for p in ALL_PASSES if p in q]
     if mentioned:
         return mentioned
     if not selected_passes:

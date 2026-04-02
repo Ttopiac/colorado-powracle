@@ -34,8 +34,9 @@ Thumbs.db
 .idea/
 .vscode/
 
-# ── Internal planning docs — never push ──────────────────────────────────────
+# ── Personal / planning docs — never push ────────────────────────────────────
 plans/
+ttopiac/
 
 # ── Eval runtime outputs — regenerate locally, keep baselines in eval/baselines/
 eval/results/

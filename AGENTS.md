@@ -92,7 +92,7 @@ COTRIP_API_KEY=...
 - Tool functions must accept a **single `str` argument** — LangChain `zero-shot-react-description` requirement. For multi-param tools, accept a comma-separated or JSON string and parse inside.
 - Always return a non-empty string. Never return `None`. Return a graceful "no data" message on failure.
 - If a live API key is missing (`COTRIP_API_KEY`), return a message telling the agent to fall back to `web_search` — do not raise an exception.
-- `get_snowpack_history` routes queries by keyword: `consistent`/`reliable` → STDDEV ranking; `above/below average`/`this season` → year-vs-10yr-avg comparison; default → monthly averages.
+- `get_snowpack_history` routes queries by keyword: `consistent`/`reliable` → STDDEV ranking; `above/below average`/`this season` → year-vs-10yr-avg comparison; `same time`/`typical`/`last year` → current month comparison; default → monthly averages (filtered to specific month if a month name like "january" is detected in the query).
 
 ### ingestion/
 - **SNOTEL API response quirk:** the `/data` endpoint wraps elements under a nested `"data"` key per station. Iterate `station.get("data", [])`, not the top-level list. Do not change this.
@@ -155,7 +155,35 @@ COTRIP_API_KEY=...
 - **Today's Leaders banner**: most fresh snow, best base depth, closest powder resort (6"+)
 - **Quick filter chips**: 4 checkboxes — 6"+ powder (72h), 50"+ base, <100mi distance, 4"+ weekend forecast. Logic in `_apply_quick_filters()`
 - **Smart Trip Planner**: collapsible expander with date picker, day slider (1–7), lodging preference, and notes. Generates multi-day itinerary prompt. Uses `load_7day_forecasts()` (cached 3hr) for full 7-day Open-Meteo forecast, injects distances + traffic tips into agent context
+- **User accounts** (requires PostgreSQL): login/register forms, profile page (username, home city, ski ability, preferred terrain), ski pass management, ski day logging with pass ROI tracking, trip history with check-in and ratings, season stats dashboard, account settings
+- **Guest mode**: app runs fully without PostgreSQL — login UI is hidden, all core features (live conditions, chat, forecasts, maps) work normally
 - **Chat**: `st.chat_input` + `st.chat_message`, last 3 exchanges passed as conversation memory, live snapshot injected per turn
 - **Deterministic answers toggle**: optional checkbox — answers simple factual live-data questions (most fresh snow, deepest base) directly from data without LLM. Logic in `agent/deterministic_answers.py`
 - **Theme**: Mountain Stone (`#383f4a` / `#424e5c`)
+
+## PostgreSQL User Accounts
+
+User accounts require PostgreSQL for season pass tracking, ROI calculation, trip planning, and check-ins. The app degrades gracefully to guest mode if PostgreSQL is not configured.
+
+### Setup
+```bash
+# Option 1: Docker (recommended)
+docker-compose up -d
+
+# Option 2: Native PostgreSQL — install per OS, create database
+
+# Add to .env:
+DATABASE_URL=postgresql://powracle_user:password@localhost:5432/powracle
+
+# Run all migrations (idempotent)
+python db/run_migrations.py
+```
+
+### Migrations
+- `db/init_postgres.py` — create base tables
+- `db/add_ticket_price_to_pass.py` — add `day_ticket_price` column
+- `db/add_pass_tracking_to_trip_day.py` — add pass tracking columns
+- `db/run_migrations.py` — **run all migrations automatically**
+
+Guest mode is available if PostgreSQL is not configured — `check_connection()` returns False and the app skips all auth UI.
 

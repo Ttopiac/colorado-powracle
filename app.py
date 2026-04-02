@@ -18,6 +18,13 @@ import os
 import math
 import re
 import ast
+from datetime import datetime, timedelta
+
+# User Accounts
+from auth.auth_manager import AuthManager
+from auth.roi_calculator import ROICalculator
+from db.postgres import check_connection, get_db
+from models.user import User, UserPass, Trip, TripDay, FavoriteResort, UserSeasonStats
 
 # Ensure project root is on sys.path so package imports work when running via streamlit
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -151,11 +158,563 @@ label,
 </style>
 """, unsafe_allow_html=True)
 
+# ══════════════════════════════════════════════════════════════════════════════
+# User Account Pages - Defined early to avoid st.rerun() issues
+# ══════════════════════════════════════════════════════════════════════════════
+
+def show_profile_page():
+    """Profile page - edit user info and manage ski passes"""
+    st.title("👤 My Profile")
+
+    user = st.session_state.user
+
+    # ── Profile Info ──────────────────────────────────────────────────────────
+    st.markdown("### Profile Information")
+
+    with st.form("profile_form"):
+        username = st.text_input("Username", value=user.username)
+        home_city = st.text_input("Home City", value=user.home_city or "Denver")
+        ski_ability = st.selectbox(
+            "Ski Ability",
+            ["Beginner", "Intermediate", "Advanced", "Expert"],
+            index=["Beginner", "Intermediate", "Advanced", "Expert"].index(user.ski_ability or "Intermediate")
+        )
+        preferred_terrain = st.multiselect(
+            "Preferred Terrain",
+            ["Groomers", "Trees", "Bowls", "Moguls", "Park"],
+            default=user.preferred_terrain.split(",") if user.preferred_terrain else []
+        )
+
+        if st.form_submit_button("Update Profile", use_container_width=True):
+            success, message = AuthManager.update_profile(
+                user.user_id,
+                username=username,
+                home_city=home_city,
+                ski_ability=ski_ability,
+                preferred_terrain=",".join(preferred_terrain)
+            )
+            if success:
+                st.success(message)
+                # Update session state
+                try:
+                    with get_db() as db:
+                        updated_user = db.query(User).filter(User.user_id == user.user_id).first()
+                        # Access attributes and expunge to make independent of session
+                        _ = updated_user.user_id, updated_user.username, updated_user.email, updated_user.home_city, updated_user.ski_ability, updated_user.preferred_terrain
+                        db.expunge(updated_user)
+                        st.session_state.user = updated_user
+                except Exception as e:
+                    st.warning(f"Profile saved but session could not be refreshed — please reload the page. ({e})")
+                st.rerun()
+            else:
+                st.error(message)
+
+    st.divider()
+
+    # ── Ski Passes ────────────────────────────────────────────────────────────
+    st.markdown("### My Ski Passes")
+
+    # Display existing passes - convert to dict to avoid detached instance errors
+    try:
+        with get_db() as db:
+            passes_query = db.query(UserPass).filter(UserPass.user_id == user.user_id).all()
+            # Convert to dicts to detach from session
+            passes = [{
+                'user_pass_id': p.user_pass_id,
+                'pass_type': p.pass_type,
+                'pass_tier': p.pass_tier,
+                'purchase_price': p.purchase_price,
+                'day_ticket_price': p.day_ticket_price,
+                'valid_from': p.valid_from,
+                'valid_until': p.valid_until,
+                'days_used': p.days_used
+            } for p in passes_query]
+    except Exception as e:
+        st.error(f"Could not load ski passes — database unavailable. ({e})")
+        passes = []
+
+    if passes:
+        for pass_obj in passes:
+            with st.expander(f"{pass_obj['pass_type']} - {pass_obj['pass_tier']}"):
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.write(f"**Purchase Price:** ${pass_obj['purchase_price']:.2f}")
+                    if pass_obj['day_ticket_price']:
+                        st.write(f"**Day Ticket Price:** ${pass_obj['day_ticket_price']:.2f}")
+                    st.write(f"**Valid From:** {pass_obj['valid_from']}")
+                with col2:
+                    st.write(f"**Valid Until:** {pass_obj['valid_until']}")
+                    st.write(f"**Days Used:** {pass_obj['days_used']}")
+
+                if st.button(f"Delete", key=f"delete_pass_{pass_obj['user_pass_id']}"):
+                    try:
+                        with get_db() as db:
+                            db.query(UserPass).filter(UserPass.user_pass_id == pass_obj['user_pass_id']).delete()
+                            db.commit()
+                        st.success("Pass deleted")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Could not delete pass — database unavailable. ({e})")
+    else:
+        st.info("No ski passes added yet")
+
+    # Add new pass
+    st.markdown("#### Add New Pass")
+    with st.form("add_pass_form"):
+        pass_type = st.selectbox("Pass Type", ["Ikon", "Epic", "Indy", "Powder Alliance"])
+        pass_tier = st.selectbox("Pass Tier", ["Base", "Full", "Plus"])
+
+        col1, col2 = st.columns(2)
+        with col1:
+            purchase_price = st.number_input("Purchase Price ($)", min_value=0.0, value=699.0,
+                                             help="What you paid for the pass")
+        with col2:
+            day_ticket_price = st.number_input("Avg Day Ticket Price ($)", min_value=0.0, value=150.0,
+                                               help="Average cost of a day ticket at resorts you'll visit")
+
+        col3, col4 = st.columns(2)
+        with col3:
+            valid_from = st.date_input("Valid From", value=datetime(2024, 11, 1).date())
+        with col4:
+            valid_until = st.date_input("Valid Until", value=datetime(2025, 4, 30).date())
+
+        if st.form_submit_button("Add Pass", use_container_width=True):
+            new_pass = UserPass(
+                user_id=user.user_id,
+                pass_type=pass_type,
+                pass_tier=pass_tier,
+                purchase_price=purchase_price,
+                day_ticket_price=day_ticket_price if day_ticket_price > 0 else None,
+                valid_from=valid_from,
+                valid_until=valid_until,
+                days_used=0
+            )
+            try:
+                with get_db() as db:
+                    db.add(new_pass)
+                    db.commit()
+                st.success(f"{pass_type} {pass_tier} pass added!")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Could not save pass — database unavailable. ({e})")
+
+    st.divider()
+
+    # ── Quick Add Ski Days ────────────────────────────────────────────────────
+    st.markdown("### ⛷️ Log Ski Days")
+    st.caption("Quickly log past ski days to track your pass ROI")
+
+    # Get all user's passes OUTSIDE the form to avoid detached instance errors
+    try:
+        with get_db() as db:
+            all_passes_query = db.query(UserPass).filter(UserPass.user_id == user.user_id).all()
+            all_passes = [{
+                'user_pass_id': p.user_pass_id,
+                'pass_type': p.pass_type,
+                'pass_tier': p.pass_tier,
+                'valid_from': p.valid_from,
+                'valid_until': p.valid_until
+            } for p in all_passes_query]
+    except Exception as e:
+        st.error(f"Could not load passes for ski day logging — database unavailable. ({e})")
+        all_passes = []
+
+    with st.form("add_ski_day_form"):
+        col1, col2 = st.columns(2)
+        with col1:
+            ski_date = st.date_input("Date Skied", value=datetime.now().date(), max_value=datetime.now().date())
+        with col2:
+            # Get list of resorts from RESORT_STATIONS
+            resort_list = sorted(RESORT_STATIONS.keys())
+            resort_skied = st.selectbox("Resort", resort_list)
+
+        # Pass vs Day Ticket selection
+        ticket_type = st.radio(
+            "Ticket Type",
+            ["Used Season Pass", "Bought Day Ticket"],
+            help="Select whether you used a season pass or purchased a day ticket"
+        )
+
+        pass_id_used = None
+        ticket_cost = None
+
+        if ticket_type == "Used Season Pass":
+            if all_passes:
+                pass_options = {f"{p['pass_type']} {p['pass_tier']}": p['user_pass_id'] for p in all_passes}
+                selected_pass = st.selectbox("Which Pass?", list(pass_options.keys()))
+                pass_id_used = pass_options[selected_pass]
+            else:
+                st.warning("No passes found. Add a pass above or select 'Bought Day Ticket'.")
+        else:
+            ticket_cost = st.number_input("Day Ticket Cost ($)", min_value=0.0, value=150.0, step=10.0)
+
+        notes = st.text_area("Notes (optional)", placeholder="e.g., 'Great powder day!', 'Skied the back bowls'")
+
+        if st.form_submit_button("Log Ski Day", use_container_width=True):
+            # Validate pass is valid for the date if using a pass
+            if ticket_type == "Used Season Pass" and pass_id_used:
+                selected_pass_info = next((p for p in all_passes if p['user_pass_id'] == pass_id_used), None)
+                if selected_pass_info:
+                    if not (selected_pass_info['valid_from'] <= ski_date <= selected_pass_info['valid_until']):
+                        st.error(f"The selected pass is not valid on {ski_date.strftime('%b %d, %Y')}. "
+                                f"Pass is valid from {selected_pass_info['valid_from']} to {selected_pass_info['valid_until']}.")
+                        st.stop()
+
+            # Create a single-day trip for this ski day
+            try:
+                new_trip = Trip(
+                    user_id=user.user_id,
+                    trip_name=f"{resort_skied} - {ski_date.strftime('%b %d')}",
+                    start_date=ski_date,
+                    end_date=ski_date,
+                    total_days=1,
+                    notes=notes if notes.strip() else None
+                )
+
+                with get_db() as db:
+                    db.add(new_trip)
+                    db.commit()
+                    db.refresh(new_trip)
+
+                    # Create trip day already checked in
+                    trip_day = TripDay(
+                        trip_id=new_trip.trip_id,
+                        day_number=1,
+                        date=ski_date,
+                        resort_name=resort_skied,
+                        checked_in=True,
+                        check_in_time=datetime.now(),
+                        used_pass=(ticket_type == "Used Season Pass"),
+                        pass_used_id=pass_id_used,
+                        day_ticket_cost=ticket_cost if ticket_type == "Bought Day Ticket" else None
+                    )
+                    db.add(trip_day)
+                    db.commit()
+
+                    # Update pass days_used only if they used a pass
+                    if ticket_type == "Used Season Pass" and pass_id_used:
+                        pass_obj = db.query(UserPass).filter(UserPass.user_pass_id == pass_id_used).first()
+                        if pass_obj:
+                            pass_obj.days_used += 1
+                            db.commit()
+
+                st.success(f"Logged ski day at {resort_skied}! Check Season Stats to see your ROI.")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Error logging ski day: {e}")
+
+
+def show_trips_page():
+    """Trips page - view trip history and check in to ski days"""
+    st.title("🎿 My Trips")
+
+    user = st.session_state.user
+
+    # Get all trips for user - convert to dicts to avoid detached instance errors
+    try:
+        with get_db() as db:
+            trips_query = db.query(Trip).filter(Trip.user_id == user.user_id).order_by(Trip.start_date.desc()).all()
+            trips = [{
+                'trip_id': t.trip_id,
+                'start_date': t.start_date,
+                'end_date': t.end_date,
+                'total_days': t.total_days,
+                'lodging_location': t.lodging_location
+            } for t in trips_query]
+    except Exception as e:
+        st.error(f"Could not load trips — database unavailable. ({e})")
+        return
+
+    if not trips:
+        st.info("No trips yet. Create a trip using the Smart Trip Planner on the Home page!")
+        return
+
+    # Display trips
+    for trip in trips:
+        with st.expander(f"📅 {trip['start_date']} → {trip['end_date']} ({trip['total_days']} days)", expanded=True):
+            st.markdown(f"**Lodging:** {trip['lodging_location'] or 'Not specified'}")
+
+            # Get trip days - convert to dicts
+            try:
+                with get_db() as db:
+                    trip_days_query = db.query(TripDay).filter(TripDay.trip_id == trip['trip_id']).order_by(TripDay.date).all()
+                    trip_days = [{
+                        'trip_day_id': d.trip_day_id,
+                        'date': d.date,
+                        'resort_name': d.resort_name,
+                        'checked_in': d.checked_in,
+                        'rating': d.rating,
+                        'review': d.review
+                    } for d in trip_days_query]
+            except Exception as e:
+                st.error(f"Could not load trip days — database unavailable. ({e})")
+                trip_days = []
+
+            if trip_days:
+                st.markdown("#### Ski Days")
+                for day in trip_days:
+                    col1, col2, col3 = st.columns([2, 1, 1])
+                    with col1:
+                        st.write(f"**{day['date']}** - {day['resort_name']}")
+                    with col2:
+                        if day['checked_in']:
+                            st.success("✓ Checked In")
+                        else:
+                            if st.button("Check In", key=f"checkin_{day['trip_day_id']}"):
+                                # Check in to this day
+                                try:
+                                    with get_db() as db:
+                                        day_obj = db.query(TripDay).filter(TripDay.trip_day_id == day['trip_day_id']).first()
+                                        day_obj.checked_in = True
+                                        day_obj.check_in_time = datetime.now()
+                                        db.commit()
+
+                                        # Update pass days_used
+                                        pass_obj = db.query(UserPass).filter(
+                                            UserPass.user_id == user.user_id,
+                                            UserPass.valid_from <= day['date'],
+                                            UserPass.valid_until >= day['date']
+                                        ).first()
+                                        if pass_obj:
+                                            pass_obj.days_used += 1
+                                            db.commit()
+
+                                    st.success("Checked in!")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Could not check in — database unavailable. ({e})")
+                    with col3:
+                        if day['checked_in'] and day['rating']:
+                            st.write(f"⭐ {day['rating']}/5")
+
+                    # Show review if exists
+                    if day['checked_in'] and day['review']:
+                        st.caption(f"💬 {day['review']}")
+
+            # Add rating/review form for checked-in days
+            checked_in_days = [d for d in trip_days if d['checked_in'] and not d['rating']]
+            if checked_in_days:
+                st.markdown("#### Rate Your Experience")
+                for day in checked_in_days:
+                    with st.form(f"rate_day_{day['trip_day_id']}"):
+                        st.write(f"**{day['date']} - {day['resort_name']}**")
+                        rating = st.slider("Rating", 1, 5, 3)
+                        review = st.text_area("Review (optional)")
+
+                        if st.form_submit_button("Submit Rating"):
+                            try:
+                                with get_db() as db:
+                                    day_obj = db.query(TripDay).filter(TripDay.trip_day_id == day['trip_day_id']).first()
+                                    day_obj.rating = rating
+                                    day_obj.review = review
+                                    db.commit()
+                                st.success("Rating submitted!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Could not save rating — database unavailable. ({e})")
+
+
+def show_stats_page():
+    """Season stats page - ROI dashboard"""
+    st.title("📊 Season Statistics")
+
+    user = st.session_state.user
+
+    # Get current season
+    now = datetime.now()
+    season = f"{now.year - 1}-{now.year}" if now.month < 7 else f"{now.year}-{now.year + 1}"
+
+    # Calculate ROI
+    roi_data = ROICalculator.calculate_user_roi(user.user_id, season)
+
+    # Debug info
+    with st.expander("🔍 Debug Info", expanded=False):
+        st.write(f"**Season:** {season}")
+        st.write(f"**User ID:** {user.user_id}")
+        st.write(f"**ROI Data:**")
+        st.json({k: str(v) for k, v in roi_data.items()})
+
+    if not roi_data or roi_data['days_skied'] == 0:
+        if roi_data and roi_data['total_pass_cost'] > 0:
+            st.warning("You have a pass but no ski days logged yet. Go to Profile → Log Ski Days to start tracking!")
+        else:
+            st.info("No ski pass data available. Add a ski pass in your Profile to see ROI stats!")
+        # Still show the empty state with zero values
+        if not roi_data:
+            return
+
+    # Display ROI metrics
+    st.markdown(f"### Season {season}")
+
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Days Skied", roi_data["days_skied"])
+    with col2:
+        st.metric("Pass Cost", f"${float(roi_data['total_pass_cost']):.2f}")
+    with col3:
+        st.metric("Ticket Value", f"${float(roi_data['total_ticket_value']):.2f}")
+    with col4:
+        roi_color = "normal" if roi_data["roi"] >= 0 else "inverse"
+        st.metric("ROI", f"${float(roi_data['roi']):.2f}", delta=f"{float(roi_data['roi_percentage']):.1f}%")
+
+    # Day ticket purchases
+    if roi_data.get("day_ticket_days", 0) > 0:
+        st.divider()
+        st.markdown("### 🎫 Day Ticket Purchases")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Days with Day Tickets", roi_data["day_ticket_days"])
+        with col2:
+            st.metric("Total Day Ticket Cost", f"${float(roi_data['total_day_ticket_cost']):.2f}")
+        st.caption("These days didn't use your pass and count as additional costs")
+
+    # Break-even progress
+    st.divider()
+    st.markdown("### Break-Even Progress")
+    days_to_break_even = roi_data.get("break_even_days", 0)
+    progress = min(roi_data["days_skied"] / days_to_break_even, 1.0) if days_to_break_even > 0 else 0
+    st.progress(progress)
+    st.caption(f"Need {days_to_break_even} days to break even. {max(0, days_to_break_even - roi_data['days_skied'])} days to go!")
+
+    # Best value days
+    if roi_data.get("best_value_days") and len(roi_data["best_value_days"]) > 0:
+        st.markdown("### Top Value Days")
+        st.caption("Days where you saved the most vs buying a day ticket")
+
+        for i, day in enumerate(roi_data["best_value_days"][:5], 1):
+            st.write(f"{i}. **{day['date']}** - {day['resort']} (${float(day['value_saved']):.2f} saved)")
+
+    # Trip history summary
+    try:
+        with get_db() as db:
+            total_trips = db.query(Trip).filter(Trip.user_id == user.user_id).count()
+            avg_rating = db.query(TripDay).filter(
+                TripDay.trip_id.in_(db.query(Trip.trip_id).filter(Trip.user_id == user.user_id)),
+                TripDay.rating.isnot(None)
+            ).with_entities(TripDay.rating).all()
+    except Exception as e:
+        st.error(f"Could not load trip summary — database unavailable. ({e})")
+        total_trips, avg_rating = 0, []
+
+    st.divider()
+    st.markdown("### Trip Summary")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("Total Trips", total_trips)
+    with col2:
+        if avg_rating:
+            avg = sum(r[0] for r in avg_rating) / len(avg_rating)
+            st.metric("Average Rating", f"{avg:.1f}/5 ⭐")
+        else:
+            st.metric("Average Rating", "N/A")
+
+
+def show_settings_page():
+    """Settings page - account settings"""
+    st.title("⚙️ Settings")
+
+    user = st.session_state.user
+
+    # Email preferences
+    st.markdown("### Notifications")
+    st.info("Email notification settings coming soon!")
+
+    # Data export
+    st.markdown("### Data Export")
+    if st.button("Export My Data", use_container_width=True):
+        st.info("Data export feature coming soon!")
+
+    # Danger zone
+    st.divider()
+    st.markdown("### Danger Zone")
+    with st.expander("Delete Account", expanded=False):
+        st.warning("This action cannot be undone. All your trips, ratings, and data will be permanently deleted.")
+
+        confirm = st.text_input("Type 'DELETE' to confirm")
+        if st.button("Delete My Account", type="primary"):
+            if confirm == "DELETE":
+                try:
+                    with get_db() as db:
+                        db.query(User).filter(User.user_id == user.user_id).delete()
+                        db.commit()
+                    st.session_state.user = None
+                    st.success("Account deleted")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Could not delete account — database unavailable. ({e})")
+            else:
+                st.error("Please type 'DELETE' to confirm")
+
+
 # ── Agent + chat history (once per session) ───────────────────────────────────
 
 if "agent" not in st.session_state:
     st.session_state.agent = build_agent(verbose=True)
     st.session_state.messages = []
+
+# User Accounts session state
+if "user" not in st.session_state:
+    st.session_state.user = None
+
+if "current_page" not in st.session_state:
+    st.session_state.current_page = "Home"
+
+# ── User Authentication (check early to prevent unnecessary rendering) ─────────
+
+db_available = check_connection()
+
+if db_available and st.session_state.user is None:
+    st.markdown("### 🔐 Colorado Powracle")
+    st.caption("Sign in to track your trips and calculate pass ROI")
+
+    tab1, tab2 = st.tabs(["Login", "Register"])
+
+    with tab1:
+        with st.form("login_form"):
+            email = st.text_input("Email")
+            password = st.text_input("Password", type="password")
+            submitted = st.form_submit_button("Login", use_container_width=True)
+
+            if submitted:
+                success, message, user = AuthManager.login(email, password)
+                if success:
+                    st.session_state.user = user
+                    st.rerun()
+                else:
+                    st.error(message)
+
+    with tab2:
+        with st.form("register_form"):
+            reg_email = st.text_input("Email", key="reg_email")
+            reg_username = st.text_input("Username", key="reg_username")
+            reg_password = st.text_input("Password", type="password", key="reg_password",
+                                        help="Minimum 8 characters")
+
+            # Use a list of cities for registration
+            _CITIES_LIST = ["Denver", "Boulder", "Colorado Springs", "Fort Collins", "Pueblo", "Grand Junction"]
+            reg_home = st.selectbox("Home City", _CITIES_LIST, key="reg_home")
+
+            submitted = st.form_submit_button("Create Account", use_container_width=True)
+
+            if submitted:
+                success, message, user = AuthManager.register_user(
+                    email=reg_email,
+                    username=reg_username,
+                    password=reg_password,
+                    home_city=reg_home
+                )
+                if success:
+                    st.success(message + " Please login.")
+                else:
+                    st.error(message)
+
+    # Guest mode option
+    st.markdown("---")
+    if st.button("Continue as Guest (limited features)", use_container_width=True):
+        st.session_state.user = "guest"
+        st.rerun()
+
+    st.stop()  # Don't render main app until logged in
 
 # ── Cache functions (defined here, called after page skeleton renders) ─────────
 
@@ -352,7 +911,8 @@ if not _first_load:
 
 # ── Map (full-width, inline — only once data is loaded) ───────────────────────
 
-if not _first_load:
+# Show map on Home page or for guest users (who are always on home)
+if not _first_load and (st.session_state.current_page == "Home" or st.session_state.user == "guest"):
     with st.expander("🗺️ Show Resort Map", expanded=False):
             fig = go.Figure()
 
@@ -469,6 +1029,49 @@ if not _first_load:
                 ),
             )
             st.plotly_chart(fig, width="stretch")
+
+# ── Sidebar Navigation (for logged-in users) ─────────────────────────────────
+
+if db_available and st.session_state.user and isinstance(st.session_state.user, User):
+    with st.sidebar:
+        st.markdown(f"### 👤 {st.session_state.user.username}")
+        st.caption(f"📍 {st.session_state.user.home_city}")
+        st.divider()
+
+        # Page navigation
+        page = st.radio(
+            "Navigate",
+            ["Home", "Profile", "My Trips", "Season Stats", "Settings"],
+            index=["Home", "Profile", "My Trips", "Season Stats", "Settings"].index(st.session_state.current_page),
+            key="page_nav"
+        )
+
+        # Update current page
+        if page != st.session_state.current_page:
+            st.session_state.current_page = page
+            st.rerun()
+
+        st.divider()
+
+        # Logout button
+        if st.button("Logout", use_container_width=True):
+            st.session_state.user = None
+            st.session_state.current_page = "Home"
+            st.rerun()
+
+# ── Route to different pages ─────────────────────────────────────────────────
+
+if db_available and st.session_state.user and isinstance(st.session_state.user, User) and st.session_state.current_page != "Home":
+    # Show different page based on selection
+    if st.session_state.current_page == "Profile":
+        show_profile_page()
+    elif st.session_state.current_page == "My Trips":
+        show_trips_page()
+    elif st.session_state.current_page == "Season Stats":
+        show_stats_page()
+    elif st.session_state.current_page == "Settings":
+        show_settings_page()
+    st.stop()  # Don't render home page content
 
 # ── Two-column layout: conditions | chat ─────────────────────────────────────
 
@@ -777,6 +1380,42 @@ Please provide a day-by-day itinerary in this format:
 
 **Overall Tips:**
 [Any additional advice about lodging, traffic, gear, etc.]"""
+
+                # Save trip to database if user is logged in (not guest)
+                if db_available and st.session_state.user and isinstance(st.session_state.user, User):
+                    try:
+                        trip_end = trip_start + timedelta(days=num_days - 1)
+                        new_trip = Trip(
+                            user_id=st.session_state.user.user_id,
+                            trip_name=f"{num_days}-day trip starting {trip_start.strftime('%b %d')}",
+                            start_date=trip_start,
+                            end_date=trip_end,
+                            total_days=num_days,
+                            lodging_location=lodging_pref if lodging_pref != "Flexible" else None,
+                            notes=trip_notes if trip_notes.strip() else None
+                        )
+
+                        with get_db() as db:
+                            db.add(new_trip)
+                            db.commit()
+                            db.refresh(new_trip)
+
+                            # Create placeholder trip days (agent will recommend specific resorts)
+                            for i in range(num_days):
+                                day_date = trip_start + timedelta(days=i)
+                                trip_day = TripDay(
+                                    trip_id=new_trip.trip_id,
+                                    day_number=i + 1,
+                                    date=day_date,
+                                    resort_name="TBD",  # Will be updated when user checks in
+                                    checked_in=False
+                                )
+                                db.add(trip_day)
+                            db.commit()
+
+                        st.success(f"Trip saved! View it in 'My Trips' page.")
+                    except Exception as e:
+                        st.warning(f"Trip plan generated but couldn't save to database: {e}")
 
                 # Inject this prompt into the chat
                 st.session_state.trip_planner_prompt = trip_prompt

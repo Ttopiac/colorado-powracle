@@ -76,6 +76,8 @@ Do NOT use system Python or base Anaconda.
 - Today's Leaders banner: shows most fresh snow, best base depth, and closest powder resort (6"+)
 - Quick filter chips: 4 checkboxes to filter resort list — 6"+ powder (72h), 50"+ base, <100mi distance, 4"+ weekend forecast. Logic lives in `_apply_quick_filters()`.
 - Smart Trip Planner: collapsible expander with date picker, day slider (1–7), lodging preference, and notes. Generates a multi-day itinerary prompt sent to the agent. Uses `load_7day_forecasts()` (cached 3hr) for full 7-day Open-Meteo forecast, and injects distances + traffic tips into the agent context.
+- User accounts (requires PostgreSQL): login/register sidebar forms, multi-page navigation (Profile, Trips, Stats, Settings). Profile page: username, home city, ski ability, preferred terrain, ski pass management (add/delete), ski day logging with pass ROI tracking. Trips page: trip history with per-day check-in and star ratings. Stats page: season ROI dashboard (days skied, pass cost, ticket value, break-even progress, top value days). Settings: data export placeholder, account deletion with confirmation.
+- Guest mode: if PostgreSQL is unavailable or unconfigured (`check_connection()` returns False), login/register UI is hidden and user is set to `"guest"`. All core features work normally.
 - Deterministic answers toggle: optional checkbox that answers simple factual live-data questions (most fresh snow, deepest base) directly from SNOTEL data without calling the LLM. Logic in `agent/deterministic_answers.py`.
 - Theme: Mountain Stone (`#383f4a` / `#424e5c`)
 
@@ -92,6 +94,36 @@ Do NOT use system Python or base Anaconda.
 - Phase 4: UI upgrades — `app.py` (UI changes are open; theme and layout may evolve freely)
 
 Every phase is additive. No existing files need to be rewritten.
+
+## PostgreSQL User Accounts
+
+User accounts require PostgreSQL for:
+- Season pass tracking & ROI calculation
+- Trip planning & check-ins
+- Season statistics
+
+### Setup
+```bash
+# Option 1: Docker (recommended)
+docker-compose up -d
+
+# Option 2: Native PostgreSQL
+# Install per OS, then create database
+
+# Add to .env:
+DATABASE_URL=postgresql://powracle_user:password@localhost:5432/powracle
+
+# Run all migrations (idempotent)
+python db/run_migrations.py
+```
+
+### Migrations
+- `db/init_postgres.py` - Create base tables
+- `db/add_ticket_price_to_pass.py` - Add day_ticket_price column
+- `db/add_pass_tracking_to_trip_day.py` - Add pass tracking columns
+- `db/run_migrations.py` - **Run all migrations automatically**
+
+Guest mode is available if PostgreSQL is not configured.
 
 ## Running one-off data commands
 ```bash

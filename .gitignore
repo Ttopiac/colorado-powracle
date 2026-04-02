@@ -52,3 +52,4 @@ plans/
 !CONTEXT_MIN.md
 !.github/pull_request_template.md
 !ONBOARDING.md
+!.claude/skills/**/*.md

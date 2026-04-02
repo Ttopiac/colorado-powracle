@@ -8,8 +8,53 @@ Welcome to the project. This guide covers everything you need to start contribut
 
 - **Repo:** https://github.com/Ttopiac/colorado-powracle
 - **API keys:** ask the project owner for `.env` values (`OPENROUTER_API_KEY`, `SERPAPI_API_KEY`, `COTRIP_API_KEY`)
+- **PostgreSQL** (optional): only needed if you want to develop or test the user accounts feature — see section 1a below
 
-For installation and environment setup, follow the [README](README.md).
+For core installation and environment setup, follow the [README](README.md).
+
+### 1a. PostgreSQL setup (optional — user accounts only)
+
+User accounts require PostgreSQL. The core app (live conditions, chat, forecasts) works without it in guest mode.
+
+**Option A — Docker (recommended):**
+```bash
+# Start Postgres via Docker
+docker-compose up -d
+
+# Verify it's running
+docker-compose ps
+```
+
+**Option B — Native PostgreSQL:**
+```bash
+# Install PostgreSQL for your OS, then create the database and user:
+psql -U postgres -c "CREATE USER powracle_user WITH PASSWORD 'your_password';"
+psql -U postgres -c "CREATE DATABASE powracle OWNER powracle_user;"
+```
+
+**Then for both options — add to your `.env`:**
+```
+DATABASE_URL=postgresql://powracle_user:your_password@localhost:5432/powracle
+```
+
+**Run migrations (idempotent — safe to run multiple times):**
+```bash
+conda activate powracle
+PYTHONPATH=/path/to/colorado_powder_oracle \
+  /opt/anaconda3/envs/powracle/bin/python db/run_migrations.py
+```
+
+**Dependencies** — install the user accounts extras:
+```bash
+conda activate powracle
+pip install -r requirements_user_accounts.txt
+```
+
+**Verify the setup:**
+```bash
+psql postgresql://powracle_user:your_password@localhost:5432/powracle -c "\dt"
+# Should list: users, user_passes, trips, trip_days
+```
 
 ---
 

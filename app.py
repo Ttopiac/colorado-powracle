@@ -194,12 +194,15 @@ def show_profile_page():
             if success:
                 st.success(message)
                 # Update session state
-                with get_db() as db:
-                    updated_user = db.query(User).filter(User.user_id == user.user_id).first()
-                    # Access attributes and expunge to make independent of session
-                    _ = updated_user.user_id, updated_user.username, updated_user.email, updated_user.home_city, updated_user.ski_ability, updated_user.preferred_terrain
-                    db.expunge(updated_user)
-                    st.session_state.user = updated_user
+                try:
+                    with get_db() as db:
+                        updated_user = db.query(User).filter(User.user_id == user.user_id).first()
+                        # Access attributes and expunge to make independent of session
+                        _ = updated_user.user_id, updated_user.username, updated_user.email, updated_user.home_city, updated_user.ski_ability, updated_user.preferred_terrain
+                        db.expunge(updated_user)
+                        st.session_state.user = updated_user
+                except Exception as e:
+                    st.warning(f"Profile saved but session could not be refreshed — please reload the page. ({e})")
                 st.rerun()
             else:
                 st.error(message)
@@ -210,19 +213,23 @@ def show_profile_page():
     st.markdown("### My Ski Passes")
 
     # Display existing passes - convert to dict to avoid detached instance errors
-    with get_db() as db:
-        passes_query = db.query(UserPass).filter(UserPass.user_id == user.user_id).all()
-        # Convert to dicts to detach from session
-        passes = [{
-            'user_pass_id': p.user_pass_id,
-            'pass_type': p.pass_type,
-            'pass_tier': p.pass_tier,
-            'purchase_price': p.purchase_price,
-            'day_ticket_price': p.day_ticket_price,
-            'valid_from': p.valid_from,
-            'valid_until': p.valid_until,
-            'days_used': p.days_used
-        } for p in passes_query]
+    try:
+        with get_db() as db:
+            passes_query = db.query(UserPass).filter(UserPass.user_id == user.user_id).all()
+            # Convert to dicts to detach from session
+            passes = [{
+                'user_pass_id': p.user_pass_id,
+                'pass_type': p.pass_type,
+                'pass_tier': p.pass_tier,
+                'purchase_price': p.purchase_price,
+                'day_ticket_price': p.day_ticket_price,
+                'valid_from': p.valid_from,
+                'valid_until': p.valid_until,
+                'days_used': p.days_used
+            } for p in passes_query]
+    except Exception as e:
+        st.error(f"Could not load ski passes — database unavailable. ({e})")
+        passes = []
 
     if passes:
         for pass_obj in passes:
@@ -238,11 +245,14 @@ def show_profile_page():
                     st.write(f"**Days Used:** {pass_obj['days_used']}")
 
                 if st.button(f"Delete", key=f"delete_pass_{pass_obj['user_pass_id']}"):
-                    with get_db() as db:
-                        db.query(UserPass).filter(UserPass.user_pass_id == pass_obj['user_pass_id']).delete()
-                        db.commit()
-                    st.success("Pass deleted")
-                    st.rerun()
+                    try:
+                        with get_db() as db:
+                            db.query(UserPass).filter(UserPass.user_pass_id == pass_obj['user_pass_id']).delete()
+                            db.commit()
+                        st.success("Pass deleted")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Could not delete pass — database unavailable. ({e})")
     else:
         st.info("No ski passes added yet")
 
@@ -277,11 +287,14 @@ def show_profile_page():
                 valid_until=valid_until,
                 days_used=0
             )
-            with get_db() as db:
-                db.add(new_pass)
-                db.commit()
-            st.success(f"{pass_type} {pass_tier} pass added!")
-            st.rerun()
+            try:
+                with get_db() as db:
+                    db.add(new_pass)
+                    db.commit()
+                st.success(f"{pass_type} {pass_tier} pass added!")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Could not save pass — database unavailable. ({e})")
 
     st.divider()
 
@@ -290,15 +303,19 @@ def show_profile_page():
     st.caption("Quickly log past ski days to track your pass ROI")
 
     # Get all user's passes OUTSIDE the form to avoid detached instance errors
-    with get_db() as db:
-        all_passes_query = db.query(UserPass).filter(UserPass.user_id == user.user_id).all()
-        all_passes = [{
-            'user_pass_id': p.user_pass_id,
-            'pass_type': p.pass_type,
-            'pass_tier': p.pass_tier,
-            'valid_from': p.valid_from,
-            'valid_until': p.valid_until
-        } for p in all_passes_query]
+    try:
+        with get_db() as db:
+            all_passes_query = db.query(UserPass).filter(UserPass.user_id == user.user_id).all()
+            all_passes = [{
+                'user_pass_id': p.user_pass_id,
+                'pass_type': p.pass_type,
+                'pass_tier': p.pass_tier,
+                'valid_from': p.valid_from,
+                'valid_until': p.valid_until
+            } for p in all_passes_query]
+    except Exception as e:
+        st.error(f"Could not load passes for ski day logging — database unavailable. ({e})")
+        all_passes = []
 
     with st.form("add_ski_day_form"):
         col1, col2 = st.columns(2)
@@ -392,15 +409,19 @@ def show_trips_page():
     user = st.session_state.user
 
     # Get all trips for user - convert to dicts to avoid detached instance errors
-    with get_db() as db:
-        trips_query = db.query(Trip).filter(Trip.user_id == user.user_id).order_by(Trip.start_date.desc()).all()
-        trips = [{
-            'trip_id': t.trip_id,
-            'start_date': t.start_date,
-            'end_date': t.end_date,
-            'total_days': t.total_days,
-            'lodging_location': t.lodging_location
-        } for t in trips_query]
+    try:
+        with get_db() as db:
+            trips_query = db.query(Trip).filter(Trip.user_id == user.user_id).order_by(Trip.start_date.desc()).all()
+            trips = [{
+                'trip_id': t.trip_id,
+                'start_date': t.start_date,
+                'end_date': t.end_date,
+                'total_days': t.total_days,
+                'lodging_location': t.lodging_location
+            } for t in trips_query]
+    except Exception as e:
+        st.error(f"Could not load trips — database unavailable. ({e})")
+        return
 
     if not trips:
         st.info("No trips yet. Create a trip using the Smart Trip Planner on the Home page!")
@@ -412,16 +433,20 @@ def show_trips_page():
             st.markdown(f"**Lodging:** {trip['lodging_location'] or 'Not specified'}")
 
             # Get trip days - convert to dicts
-            with get_db() as db:
-                trip_days_query = db.query(TripDay).filter(TripDay.trip_id == trip['trip_id']).order_by(TripDay.date).all()
-                trip_days = [{
-                    'trip_day_id': d.trip_day_id,
-                    'date': d.date,
-                    'resort_name': d.resort_name,
-                    'checked_in': d.checked_in,
-                    'rating': d.rating,
-                    'review': d.review
-                } for d in trip_days_query]
+            try:
+                with get_db() as db:
+                    trip_days_query = db.query(TripDay).filter(TripDay.trip_id == trip['trip_id']).order_by(TripDay.date).all()
+                    trip_days = [{
+                        'trip_day_id': d.trip_day_id,
+                        'date': d.date,
+                        'resort_name': d.resort_name,
+                        'checked_in': d.checked_in,
+                        'rating': d.rating,
+                        'review': d.review
+                    } for d in trip_days_query]
+            except Exception as e:
+                st.error(f"Could not load trip days — database unavailable. ({e})")
+                trip_days = []
 
             if trip_days:
                 st.markdown("#### Ski Days")
@@ -435,24 +460,27 @@ def show_trips_page():
                         else:
                             if st.button("Check In", key=f"checkin_{day['trip_day_id']}"):
                                 # Check in to this day
-                                with get_db() as db:
-                                    day_obj = db.query(TripDay).filter(TripDay.trip_day_id == day['trip_day_id']).first()
-                                    day_obj.checked_in = True
-                                    day_obj.check_in_time = datetime.now()
-                                    db.commit()
-
-                                    # Update pass days_used
-                                    pass_obj = db.query(UserPass).filter(
-                                        UserPass.user_id == user.user_id,
-                                        UserPass.valid_from <= day['date'],
-                                        UserPass.valid_until >= day['date']
-                                    ).first()
-                                    if pass_obj:
-                                        pass_obj.days_used += 1
+                                try:
+                                    with get_db() as db:
+                                        day_obj = db.query(TripDay).filter(TripDay.trip_day_id == day['trip_day_id']).first()
+                                        day_obj.checked_in = True
+                                        day_obj.check_in_time = datetime.now()
                                         db.commit()
 
-                                st.success("Checked in!")
-                                st.rerun()
+                                        # Update pass days_used
+                                        pass_obj = db.query(UserPass).filter(
+                                            UserPass.user_id == user.user_id,
+                                            UserPass.valid_from <= day['date'],
+                                            UserPass.valid_until >= day['date']
+                                        ).first()
+                                        if pass_obj:
+                                            pass_obj.days_used += 1
+                                            db.commit()
+
+                                    st.success("Checked in!")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Could not check in — database unavailable. ({e})")
                     with col3:
                         if day['checked_in'] and day['rating']:
                             st.write(f"⭐ {day['rating']}/5")
@@ -472,13 +500,16 @@ def show_trips_page():
                         review = st.text_area("Review (optional)")
 
                         if st.form_submit_button("Submit Rating"):
-                            with get_db() as db:
-                                day_obj = db.query(TripDay).filter(TripDay.trip_day_id == day['trip_day_id']).first()
-                                day_obj.rating = rating
-                                day_obj.review = review
-                                db.commit()
-                            st.success("Rating submitted!")
-                            st.rerun()
+                            try:
+                                with get_db() as db:
+                                    day_obj = db.query(TripDay).filter(TripDay.trip_day_id == day['trip_day_id']).first()
+                                    day_obj.rating = rating
+                                    day_obj.review = review
+                                    db.commit()
+                                st.success("Rating submitted!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Could not save rating — database unavailable. ({e})")
 
 
 def show_stats_page():
@@ -552,12 +583,16 @@ def show_stats_page():
             st.write(f"{i}. **{day['date']}** - {day['resort']} (${float(day['value_saved']):.2f} saved)")
 
     # Trip history summary
-    with get_db() as db:
-        total_trips = db.query(Trip).filter(Trip.user_id == user.user_id).count()
-        avg_rating = db.query(TripDay).filter(
-            TripDay.trip_id.in_(db.query(Trip.trip_id).filter(Trip.user_id == user.user_id)),
-            TripDay.rating.isnot(None)
-        ).with_entities(TripDay.rating).all()
+    try:
+        with get_db() as db:
+            total_trips = db.query(Trip).filter(Trip.user_id == user.user_id).count()
+            avg_rating = db.query(TripDay).filter(
+                TripDay.trip_id.in_(db.query(Trip.trip_id).filter(Trip.user_id == user.user_id)),
+                TripDay.rating.isnot(None)
+            ).with_entities(TripDay.rating).all()
+    except Exception as e:
+        st.error(f"Could not load trip summary — database unavailable. ({e})")
+        total_trips, avg_rating = 0, []
 
     st.divider()
     st.markdown("### Trip Summary")
@@ -596,12 +631,15 @@ def show_settings_page():
         confirm = st.text_input("Type 'DELETE' to confirm")
         if st.button("Delete My Account", type="primary"):
             if confirm == "DELETE":
-                with get_db() as db:
-                    db.query(User).filter(User.user_id == user.user_id).delete()
-                    db.commit()
-                st.session_state.user = None
-                st.success("Account deleted")
-                st.rerun()
+                try:
+                    with get_db() as db:
+                        db.query(User).filter(User.user_id == user.user_id).delete()
+                        db.commit()
+                    st.session_state.user = None
+                    st.success("Account deleted")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Could not delete account — database unavailable. ({e})")
             else:
                 st.error("Please type 'DELETE' to confirm")
 

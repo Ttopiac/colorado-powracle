@@ -47,8 +47,8 @@ Determine which sections apply based on changed files:
 #### Always section
 | Item | How to verify |
 |---|---|
-| App starts without errors | Cannot verify at review time — flag as "author must confirm" |
-| Tested 2 canonical questions | Cannot verify at review time — flag as "author must confirm" |
+| App starts without errors | In `--fix` mode: check out the PR branch, run `conda activate powracle && timeout 15 streamlit run app.py &` then check if the process started without errors and kill it. In `--discuss` mode: flag as "author must confirm". |
+| Tested 2 canonical questions | In `--fix` mode: check out the PR branch, run 2 canonical questions from CLAUDE.md through the agent via a Python one-liner (`agent.invoke()`). Pick questions relevant to the PR's changes plus one general question. Record the tool calls and final answer. In `--discuss` mode: flag as "author must confirm". |
 | No `.env`, `data/`, `*.duckdb`, `*.parquet` staged | Check `gh pr diff <N> --name-only` for these patterns |
 | No `.claude/settings.local.json` staged | Check `gh pr diff <N> --name-only` for `settings.local.json` |
 | No runtime artifact files staged | Check `gh pr diff <N> --name-only` for `eval/results/`, timestamped JSONs, output dumps |
@@ -167,18 +167,64 @@ Want to discuss these, or should I go ahead and fix? (use --fix next time to ski
 
 **In `--fix` mode**, skip the checkpoint and proceed directly to Step 8.
 
-### 8. Fix blocking issues
+### 8. Fix blocking issues and run runtime checks
 
+**Check out the PR branch first**: `gh pr checkout <NUMBER>`
+
+#### 8a. Fix code/doc issues
 For each fixable issue:
-1. **Check out the PR branch**: `gh pr checkout <NUMBER>`
-2. **Make the code/doc changes** using Edit or Write tools
-3. **Commit with a clear message** explaining what was fixed and why
-4. **Push** to the PR branch
-5. **Post a follow-up comment** on the PR summarizing exactly what was fixed:
-   - Which files were changed
-   - What each change does
-   - Which checklist items are now resolved
-   - Which items still need the author (runtime tests, etc.)
+1. **Make the code/doc changes** using Edit or Write tools
+2. **Commit with a clear message** explaining what was fixed and why
+3. **Push** to the PR branch
+
+#### 8b. Run runtime verification (always in `--fix` mode)
+These checks were previously "author must confirm" but in `--fix` mode you run them yourself:
+
+**App startup test:**
+```bash
+cd /Users/chli4608/Repositories/colorado_powder_oracle
+/opt/anaconda3/envs/powracle/bin/python -c "
+import subprocess, time, signal, sys
+proc = subprocess.Popen(
+    ['/opt/anaconda3/envs/powracle/bin/streamlit', 'run', 'app.py', '--server.headless=true'],
+    stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+)
+time.sleep(10)
+proc.send_signal(signal.SIGTERM)
+stdout, stderr = proc.communicate(timeout=5)
+output = stdout + stderr
+if 'Error' in output or proc.returncode not in (0, -15, None):
+    print('FAIL: App crashed on startup')
+    print(output[-500:])
+    sys.exit(1)
+else:
+    print('PASS: App started without errors')
+"
+```
+
+**Canonical questions test:**
+Run 2 questions through the agent — pick one relevant to the PR's changes, one general:
+```bash
+PYTHONPATH=/Users/chli4608/Repositories/colorado_powder_oracle \
+  /opt/anaconda3/envs/powracle/bin/python -c "
+from agent.agent import build_agent
+agent = build_agent(verbose=True)
+# Q1: relevant to this PR
+result = agent.invoke({'messages': [('human', '<question>')]})
+print('Q1 ANSWER:', result['messages'][-1].content[:300])
+# Q2: general sanity check
+result = agent.invoke({'messages': [('human', '<question>')]})
+print('Q2 ANSWER:', result['messages'][-1].content[:300])
+"
+```
+Replace `<question>` with actual canonical questions from CLAUDE.md. Record which tool was called and whether the answer is reasonable.
+
+#### 8c. Post follow-up comment
+Post a comment on the PR summarizing:
+- Which files were changed and what each change does
+- Runtime test results (app startup: pass/fail, each canonical question: tool called + answer summary)
+- Which checklist items are now resolved
+- Any remaining items (there should be none in `--fix` mode)
 
 After fixing, update the PR body to check off the newly-resolved items.
 

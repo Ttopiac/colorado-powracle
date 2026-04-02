@@ -52,7 +52,7 @@ OPENROUTER_API_KEY=sk-or-your-key-here
 SERPAPI_API_KEY=your-serpapi-key-here
 COTRIP_API_KEY=your-cotrip-key-here
 
-# Optional: PostgreSQL for user accounts (see step 8)
+# PostgreSQL for user accounts (see step 8)
 # DATABASE_URL=postgresql://powracle_user:your_secure_password@localhost:5432/powracle
 ```
 
@@ -80,9 +80,9 @@ Loads both the snow CSVs and traffic CSV into DuckDB. Run once (or again after r
 PYTHONPATH=. python db/setup.py
 ```
 
-### 8. (Optional) Set up PostgreSQL for User Accounts
+### 8. Set up PostgreSQL for User Accounts
 
-User accounts are **optional**. You can run the app in guest mode without PostgreSQL. However, if you want to track your ski days, calculate pass ROI, and save trip plans, you'll need PostgreSQL.
+User accounts require PostgreSQL. Without it, the app runs in guest mode (all core features work, but no login/profile/trip tracking). To enable user accounts:
 
 #### 8a. Install PostgreSQL
 
@@ -415,7 +415,7 @@ Type any ski-related question in plain English. The Oracle calls its tools, cons
 | [COtrip REST API](https://manage-api.cotrip.org/login) (Colorado DOT) | `get_live_traffic` | Live road incidents, chain laws, surface conditions | Real-time |
 | CDOT Historical Traffic → DuckDB | `get_best_departure_time` | 10 years of hourly traffic volumes on I-70, US-40, US-285 | Static |
 | [Open-Meteo API](https://open-meteo.com/) | `get_snow_forecast` | 7-day snowfall forecast (HRRR model, no key required) | Real-time |
-| PostgreSQL (optional) | User accounts | Profile, passes, ski day logs, trip plans, ROI tracking | User-managed |
+| PostgreSQL | User accounts | Profile, passes, ski day logs, trip plans, ROI tracking | User-managed |
 
 ---
 
@@ -455,7 +455,7 @@ Type any ski-related question in plain English. The Oracle calls its tools, cons
 - **Historical traffic data**: CDOT traffic volumes → DuckDB
 - **Snow forecast**: Open-Meteo API (HRRR model, no key required)
 - **Web search**: SerpAPI
-- **User accounts**: PostgreSQL + SQLAlchemy (optional)
+- **User accounts**: PostgreSQL + SQLAlchemy
 - **Authentication**: bcrypt password hashing
 - **UI**: Streamlit + Plotly
 - **Map tiles**: ESRI World Topo Map

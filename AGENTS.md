@@ -155,15 +155,15 @@ COTRIP_API_KEY=...
 - **Today's Leaders banner**: most fresh snow, best base depth, closest powder resort (6"+)
 - **Quick filter chips**: 4 checkboxes — 6"+ powder (72h), 50"+ base, <100mi distance, 4"+ weekend forecast. Logic in `_apply_quick_filters()`
 - **Smart Trip Planner**: collapsible expander with date picker, day slider (1–7), lodging preference, and notes. Generates multi-day itinerary prompt. Uses `load_7day_forecasts()` (cached 3hr) for full 7-day Open-Meteo forecast, injects distances + traffic tips into agent context
-- **User accounts** (optional, requires PostgreSQL): login/register forms, profile page (username, home city, ski ability, preferred terrain), ski pass management, ski day logging with pass ROI tracking, trip history with check-in and ratings, season stats dashboard, account settings
+- **User accounts** (requires PostgreSQL): login/register forms, profile page (username, home city, ski ability, preferred terrain), ski pass management, ski day logging with pass ROI tracking, trip history with check-in and ratings, season stats dashboard, account settings
 - **Guest mode**: app runs fully without PostgreSQL — login UI is hidden, all core features (live conditions, chat, forecasts, maps) work normally
 - **Chat**: `st.chat_input` + `st.chat_message`, last 3 exchanges passed as conversation memory, live snapshot injected per turn
 - **Deterministic answers toggle**: optional checkbox — answers simple factual live-data questions (most fresh snow, deepest base) directly from data without LLM. Logic in `agent/deterministic_answers.py`
 - **Theme**: Mountain Stone (`#383f4a` / `#424e5c`)
 
-## PostgreSQL User Accounts (Optional)
+## PostgreSQL User Accounts
 
-The app supports optional user accounts via PostgreSQL for season pass tracking, ROI calculation, trip planning, and check-ins.
+User accounts require PostgreSQL for season pass tracking, ROI calculation, trip planning, and check-ins. The app degrades gracefully to guest mode if PostgreSQL is not configured.
 
 ### Setup
 ```bash

@@ -16,7 +16,7 @@ Two ways to run:
 - **Streamlit UI**: `streamlit run app.py` → browser at localhost:8501
 - **FastAPI API**: `uvicorn api:app --reload` → docs at localhost:8000/docs
 
-### 1a. PostgreSQL setup (optional — for user accounts)
+### 1a. PostgreSQL setup (for user accounts)
 
 The app supports user accounts (pass tracking, trip planning, ROI) via PostgreSQL.
 

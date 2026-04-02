@@ -92,7 +92,7 @@ COTRIP_API_KEY=...
 - Tool functions must accept a **single `str` argument** — LangChain `zero-shot-react-description` requirement. For multi-param tools, accept a comma-separated or JSON string and parse inside.
 - Always return a non-empty string. Never return `None`. Return a graceful "no data" message on failure.
 - If a live API key is missing (`COTRIP_API_KEY`), return a message telling the agent to fall back to `web_search` — do not raise an exception.
-- `get_snowpack_history` routes queries by keyword: `consistent`/`reliable` → STDDEV ranking; `above/below average`/`this season` → year-vs-10yr-avg comparison; default → monthly averages.
+- `get_snowpack_history` routes queries by keyword: `consistent`/`reliable` → STDDEV ranking; `above/below average`/`this season` → year-vs-10yr-avg comparison; `same time`/`typical`/`last year` → current month comparison; default → monthly averages (filtered to specific month if a month name like "january" is detected in the query).
 
 ### ingestion/
 - **SNOTEL API response quirk:** the `/data` endpoint wraps elements under a nested `"data"` key per station. Iterate `station.get("data", [])`, not the top-level list. Do not change this.

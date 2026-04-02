@@ -67,13 +67,22 @@ current_snowpack_tool = Tool(
     func=_current_snowpack,
     description=(
         "Returns live snowpack conditions (base depth, new snow in last 24/48/72 hours) "
-        "for a named Colorado ski resort. Call this for any question about current snow. "
+        "for a single named Colorado ski resort. Call this ONLY for questions about live or "
+        "current conditions for one specific resort. Do NOT call for historical comparisons, "
+        "averages, 'historically', 'most snow in [month]', 'best month', or 'year over year' "
+        "questions — use get_snowpack_history for those instead. "
         f"Valid resort names: {RESORT_LIST}."
     ),
 )
 
 
 # ── Tool 2: historical snowpack ───────────────────────────────────────────────
+
+_MONTH_NAMES = [
+    "january", "february", "march", "april", "may", "june",
+    "july", "august", "september", "october", "november", "december",
+]
+
 
 def _snowpack_history(query: str) -> str:
     query = _clean(query).lower()
@@ -86,6 +95,9 @@ def _snowpack_history(query: str) -> str:
             if resort.lower() in query:
                 resort_match = resort
                 break
+
+        # Detect specific month name in query
+        month_num = next((i + 1 for i, m in enumerate(_MONTH_NAMES) if m in query), None)
 
         if any(w in query for w in ["consistent", "reliable", "every year", "best resort overall"]):
             sql = """
@@ -133,13 +145,19 @@ def _snowpack_history(query: str) -> str:
             """
         else:
             # Default: monthly average new snow — useful for "best month to ski X"
-            resort_clause = f"WHERE resort = '{resort_match}'" if resort_match else ""
+            # or "which resort gets most snow in January" (month_num detected above)
+            conditions = []
+            if resort_match:
+                conditions.append(f"resort = '{resort_match}'")
+            if month_num:
+                conditions.append(f"month = {month_num}")
+            where_clause = ("WHERE " + " AND ".join(conditions)) if conditions else ""
             sql = f"""
                 SELECT resort, month,
                        avg_depth_in,
                        avg_daily_new_snow AS avg_daily_new_in
                 FROM monthly_averages
-                {resort_clause}
+                {where_clause}
                 ORDER BY avg_daily_new_snow DESC
                 LIMIT 25
             """

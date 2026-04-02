@@ -52,7 +52,7 @@ Then update `SYSTEM_PROMPT` in `prompts.py`.
 `SYSTEM_PROMPT` is injected as the agent prefix — the LLM sees it before every conversation turn.
 
 ### Current sections in SYSTEM_PROMPT
-1. **Tool usage guidance** — when to call each tool, in what order
+1. **Tool usage guidance** — when to call each tool, in what order. Includes explicit trigger-word routing: keywords like "historically", "on average", "most snow in [month]", "best month", "year over year" must route to `get_snowpack_history`, never `get_current_snowpack`.
 2. **Resort knowledge** — all 19 resorts organized by pass (IKON/EPIC/INDY), with corridor and snow characteristic notes
 3. **Snowpack science** — SWE interpretation, powder thresholds (≥6" new in 24h = powder day), aspect knowledge
 4. **Traffic patterns** — I-70 Saturday westbound 6–10 AM peak, Sunday eastbound 1–5 PM peak

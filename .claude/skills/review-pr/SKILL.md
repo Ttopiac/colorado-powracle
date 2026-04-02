@@ -1,8 +1,8 @@
 ---
 name: review-pr
 description: Review ALL open pull requests against the project PR template, fix their bodies, post detailed comments, and update the PR template itself if new checks are discovered.
-argument-hint: "[optional: pr-number to review a single PR]"
-allowed-tools: Bash, Read, Glob, Grep, Edit, Write
+argument-hint: "[optional: pr-number] [--fix | --discuss]"
+allowed-tools: Bash, Read, Glob, Grep, Edit, Write, AskUserQuestion
 ---
 
 # PR Template Reviewer
@@ -47,8 +47,8 @@ Determine which sections apply based on changed files:
 #### Always section
 | Item | How to verify |
 |---|---|
-| App starts without errors | Cannot verify at review time — flag as "author must confirm" |
-| Tested 2 canonical questions | Cannot verify at review time — flag as "author must confirm" |
+| App starts without errors | During review (Step 4): flag as "will be verified during fix step". During fix (Step 8b): run the automated startup test. |
+| Tested 2 canonical questions | During review (Step 4): flag as "will be verified during fix step". During fix (Step 8b): run 2 canonical questions through the agent. |
 | No `.env`, `data/`, `*.duckdb`, `*.parquet` staged | Check `gh pr diff <N> --name-only` for these patterns |
 | No `.claude/settings.local.json` staged | Check `gh pr diff <N> --name-only` for `settings.local.json` |
 | No runtime artifact files staged | Check `gh pr diff <N> --name-only` for `eval/results/`, timestamped JSONs, output dumps |
@@ -139,7 +139,98 @@ The comment must include:
 - For runtime items that cannot be code-verified: explicitly flag them as "author must confirm"
 - A final action list for the author
 
-### 7. After all PRs — update the PR template if needed
+### 7. Checkpoint — ask the user before fixing
+
+After posting the review comment, if there are **any fixable blocking issues** (missing doc updates, missing files, code issues — anything you can fix by editing files), behavior depends on the mode flag in `$ARGUMENTS`:
+
+**Parse the mode flag from `$ARGUMENTS`:**
+- `--fix` → auto-fix all blocking issues immediately (skip to Step 8)
+- `--discuss` → present the issues and wait for the user to approve before fixing (default)
+- No flag → same as `--discuss`
+
+**In `--discuss` mode (default)**, present the issues and wait:
+
+```
+Found N blocking issues I can fix:
+1. [brief description of issue]
+2. [brief description of issue]
+...
+
+Want to discuss these, or should I go ahead and fix? (use --fix next time to skip this step)
+```
+
+**Wait for the user's response before proceeding.** Do NOT fix issues without explicit approval. The user may want to push back on whether something is truly blocking, adjust the approach, or handle it themselves.
+
+- If the user explicitly says to fix (e.g. "fix", "go ahead", "yes") → proceed to Step 8.
+- If the user wants to discuss → answer their questions, and only proceed to Step 8 when they explicitly say to go ahead.
+- If the user says to skip → skip Step 8 entirely and go to Step 9.
+
+**In `--fix` mode**, skip the checkpoint and proceed directly to Step 8.
+
+### 8. Fix blocking issues and run runtime checks
+
+> **This step runs in both modes** — in `--fix` mode it runs immediately after the review comment; in `--discuss` mode it runs when the user says "fix" / "go ahead". Runtime verification is ALWAYS part of fixing — never punt it to the author.
+
+**Check out the PR branch first**: `gh pr checkout <NUMBER>`
+
+#### 8a. Fix code/doc issues
+For each fixable issue:
+1. **Make the code/doc changes** using Edit or Write tools
+2. **Commit with a clear message** explaining what was fixed and why
+3. **Push** to the PR branch
+
+#### 8b. Run runtime verification
+These checks were previously "author must confirm" but in `--fix` mode you run them yourself:
+
+**App startup test:**
+```bash
+cd /Users/chli4608/Repositories/colorado_powder_oracle
+/opt/anaconda3/envs/powracle/bin/python -c "
+import subprocess, time, signal, sys
+proc = subprocess.Popen(
+    ['/opt/anaconda3/envs/powracle/bin/streamlit', 'run', 'app.py', '--server.headless=true'],
+    stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+)
+time.sleep(10)
+proc.send_signal(signal.SIGTERM)
+stdout, stderr = proc.communicate(timeout=5)
+output = stdout + stderr
+if 'Error' in output or proc.returncode not in (0, -15, None):
+    print('FAIL: App crashed on startup')
+    print(output[-500:])
+    sys.exit(1)
+else:
+    print('PASS: App started without errors')
+"
+```
+
+**Canonical questions test:**
+Run 2 questions through the agent — pick one relevant to the PR's changes, one general:
+```bash
+PYTHONPATH=/Users/chli4608/Repositories/colorado_powder_oracle \
+  /opt/anaconda3/envs/powracle/bin/python -c "
+from agent.agent import build_agent
+agent = build_agent(verbose=True)
+# Q1: relevant to this PR
+result = agent.invoke({'messages': [('human', '<question>')]})
+print('Q1 ANSWER:', result['messages'][-1].content[:300])
+# Q2: general sanity check
+result = agent.invoke({'messages': [('human', '<question>')]})
+print('Q2 ANSWER:', result['messages'][-1].content[:300])
+"
+```
+Replace `<question>` with actual canonical questions from CLAUDE.md. Record which tool was called and whether the answer is reasonable.
+
+#### 8c. Post follow-up comment
+Post a comment on the PR summarizing:
+- Which files were changed and what each change does
+- Runtime test results (app startup: pass/fail, each canonical question: tool called + answer summary)
+- Which checklist items are now resolved
+- Any remaining items (there should be none in `--fix` mode)
+
+After fixing, update the PR body to check off the newly-resolved items.
+
+### 9. After all PRs — update the PR template if needed
 Review your running log of new checks discovered. For any check that:
 - Was missing from the template and needed to be applied to one or more PRs, OR
 - Represents a recurring risk not currently covered

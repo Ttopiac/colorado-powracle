@@ -8,13 +8,13 @@ Welcome to the project. This guide covers everything you need to start contribut
 
 - **Repo:** https://github.com/Ttopiac/colorado-powracle
 - **API keys:** ask the project owner for `.env` values (`OPENROUTER_API_KEY`, `SERPAPI_API_KEY`, `COTRIP_API_KEY`)
-- **PostgreSQL** (optional): only needed if you want to develop or test the user accounts feature — see section 1a below
+- **PostgreSQL**: required for the user accounts feature — see section 1a below
 
-For core installation and environment setup, follow the [README](README.md).
+For installation and environment setup, follow the [README](README.md).
 
-### 1a. PostgreSQL setup (optional — user accounts only)
+### 1a. PostgreSQL setup
 
-User accounts require PostgreSQL. The core app (live conditions, chat, forecasts) works without it in guest mode.
+The app supports user accounts (pass tracking, trip planning, ROI) via PostgreSQL.
 
 **Option A — Docker (recommended):**
 ```bash
@@ -44,7 +44,7 @@ PYTHONPATH=/path/to/colorado_powder_oracle \
   /opt/anaconda3/envs/powracle/bin/python db/run_migrations.py
 ```
 
-**Dependencies** — the user accounts packages are included in the main `requirements.txt` under the "User accounts (optional)" section. If you haven't installed them yet:
+**Dependencies** — all packages including PostgreSQL drivers are in `requirements.txt`. If you haven't installed yet:
 ```bash
 conda activate powracle
 pip install -r requirements.txt

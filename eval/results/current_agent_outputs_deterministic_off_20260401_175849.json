@@ -1,0 +1,188 @@
+{
+  "meta": {
+    "generated_at": "2026-04-01T17:58:49.118939",
+    "prompt_count": 5,
+    "success_count": 5,
+    "error_count": 0,
+    "use_deterministic_simple_answers": false,
+    "source_prompts": "/Users/dronakhurana/colorado-powracle/eval/prompts.csv"
+  },
+  "results": [
+    {
+      "id": "F01",
+      "category": "factual",
+      "question": "Which resort has the most fresh snow right now?",
+      "selected_passes": [
+        "All"
+      ],
+      "start_city": "Denver",
+      "expected_type": "deterministic",
+      "notes": "Live 72h new snow ranking",
+      "use_deterministic_simple_answers": false,
+      "answer": "Based on the live snowpack data provided, the resort with the most fresh snow right now is Telluride, with 3 inches of new snow in the last 72 hours.\n\nWhile several other resorts have 0 inches of new snow, Telluride stands out with a modest but meaningful 3 inches of fresh powder. This is the only resort reporting any new snow accumulation in the last 72 hours.\n\nHowever, it's important to note that Telluride has a very low base depth of only 3 inches. This means the new snow is likely sitting on a thin base, increasing the risk of hitting rocks or other obstacles. Resorts with deeper bases, like Loveland (34 inches) or Ski Cooper (24 inches), may offer better overall conditions despite the lack of fresh snow.\n\nSo in summary, Telluride has the most new snow, but the low base depth is a concern. For the best overall powder experience right now, I would recommend considering resorts with deeper bases like Loveland, Ski Cooper, or Steamboat Springs (6 inch base).",
+      "ranking": [
+        "Telluride",
+        "Loveland",
+        "Ski Cooper",
+        "Steamboat Springs",
+        "Aspen / Snowmass",
+        "Wolf Creek",
+        "Arapahoe Basin",
+        "Breckenridge",
+        "Keystone",
+        "Crested Butte",
+        "Purgatory",
+        "Powderhorn",
+        "Sunlight Mountain",
+        "Copper Mountain",
+        "Winter Park",
+        "Vail",
+        "Beaver Creek",
+        "Eldora",
+        "Monarch Mountain"
+      ],
+      "raw_response": "Based on the live snowpack data provided, the resort with the most fresh snow right now is Telluride, with 3 inches of new snow in the last 72 hours.\n\nWhile several other resorts have 0 inches of new snow, Telluride stands out with a modest but meaningful 3 inches of fresh powder. This is the only resort reporting any new snow accumulation in the last 72 hours.\n\nHowever, it's important to note that Telluride has a very low base depth of only 3 inches. This means the new snow is likely sitting on a thin base, increasing the risk of hitting rocks or other obstacles. Resorts with deeper bases, like Loveland (34 inches) or Ski Cooper (24 inches), may offer better overall conditions despite the lack of fresh snow.\n\nSo in summary, Telluride has the most new snow, but the low base depth is a concern. For the best overall powder experience right now, I would recommend considering resorts with deeper bases like Loveland, Ski Cooper, or Steamboat Springs (6 inch base).\n\n[RANKING: Telluride, Loveland, Ski Cooper, Steamboat Springs, Aspen / Snowmass, Wolf Creek, Arapahoe Basin, Breckenridge, Keystone, Crested Butte, Purgatory, Powderhorn, Sunlight Mountain, Copper Mountain, Winter Park, Vail, Beaver Creek, Eldora, Monarch Mountain]"
+    },
+    {
+      "id": "F02",
+      "category": "factual",
+      "question": "Which resort has the deepest base right now?",
+      "selected_passes": [
+        "All"
+      ],
+      "start_city": "Denver",
+      "expected_type": "deterministic",
+      "notes": "Live base-depth ranking",
+      "use_deterministic_simple_answers": false,
+      "answer": "Based on the live snowpack data provided, the resort with the deepest base right now is Loveland, with a 34\" base depth.",
+      "ranking": [
+        "Loveland",
+        "Ski Cooper",
+        "Eldora",
+        "Winter Park",
+        "Arapahoe Basin",
+        "Breckenridge",
+        "Keystone",
+        "Steamboat Springs",
+        "Aspen / Snowmass",
+        "Vail",
+        "Beaver Creek",
+        "Crested Butte",
+        "Wolf Creek",
+        "Copper Mountain",
+        "Telluride",
+        "Purgatory",
+        "Powderhorn",
+        "Monarch Mountain",
+        "Sunlight Mountain"
+      ],
+      "raw_response": "Based on the live snowpack data provided, the resort with the deepest base right now is Loveland, with a 34\" base depth.\n\n[RANKING: Loveland, Ski Cooper, Eldora, Winter Park, Arapahoe Basin, Breckenridge, Keystone, Steamboat Springs, Aspen / Snowmass, Vail, Beaver Creek, Crested Butte, Wolf Creek, Copper Mountain, Telluride, Purgatory, Powderhorn, Monarch Mountain, Sunlight Mountain]"
+    },
+    {
+      "id": "F03",
+      "category": "factual",
+      "question": "Which IKON resort has the deepest base right now?",
+      "selected_passes": [
+        "All"
+      ],
+      "start_city": "Denver",
+      "expected_type": "deterministic",
+      "notes": "Pass mentioned in question should override All",
+      "use_deterministic_simple_answers": false,
+      "answer": "Based on the live snowpack data provided, the IKON resort with the deepest base right now is Loveland, with a 34\" base depth.\n\nThe other IKON resorts and their base depths are:\n- Steamboat Springs: 6\" base\n- Winter Park: 20\" base \n- Copper Mountain: 11\" base\n- Arapahoe Basin: 16\" base\n- Aspen / Snowmass: 15\" base\n- Eldora: 20\" base\n\nSo Loveland stands out with the deepest base of the IKON resorts. This means Loveland will have the best coverage and fewest exposed rocks, making for a more enjoyable skiing experience right now.",
+      "ranking": [
+        "Loveland",
+        "Eldora",
+        "Arapahoe Basin",
+        "Winter Park",
+        "Aspen / Snowmass",
+        "Copper Mountain",
+        "Steamboat Springs",
+        "Breckenridge",
+        "Vail",
+        "Beaver Creek",
+        "Keystone",
+        "Crested Butte",
+        "Telluride",
+        "Wolf Creek",
+        "Monarch Mountain",
+        "Ski Cooper",
+        "Purgatory",
+        "Powderhorn",
+        "Sunlight Mountain"
+      ],
+      "raw_response": "Based on the live snowpack data provided, the IKON resort with the deepest base right now is Loveland, with a 34\" base depth.\n\nThe other IKON resorts and their base depths are:\n- Steamboat Springs: 6\" base\n- Winter Park: 20\" base \n- Copper Mountain: 11\" base\n- Arapahoe Basin: 16\" base\n- Aspen / Snowmass: 15\" base\n- Eldora: 20\" base\n\nSo Loveland stands out with the deepest base of the IKON resorts. This means Loveland will have the best coverage and fewest exposed rocks, making for a more enjoyable skiing experience right now.\n\n[RANKING: Loveland, Eldora, Arapahoe Basin, Winter Park, Aspen / Snowmass, Copper Mountain, Steamboat Springs]"
+    },
+    {
+      "id": "F04",
+      "category": "factual",
+      "question": "Which EPIC resort has the most fresh snow right now?",
+      "selected_passes": [
+        "All"
+      ],
+      "start_city": "Denver",
+      "expected_type": "deterministic",
+      "notes": "Pass mentioned in question should override All",
+      "use_deterministic_simple_answers": false,
+      "answer": "Based on the live snowpack data provided, the EPIC resort with the most fresh snow right now is Telluride, with 3 inches of new snow in the last 72 hours.\n\nThe other EPIC resorts have 0 inches of new snow in the last 72 hours:\n- Breckenridge: 0\" new (72h)\n- Vail: 0\" new (72h) \n- Beaver Creek: 0\" new (72h)\n- Keystone: 0\" new (72h)\n- Crested Butte: 0\" new (72h)\n- Telluride: 3\" new (72h)\n\nSo Telluride stands out as the EPIC resort with the freshest powder at the moment.",
+      "ranking": [
+        "Telluride",
+        "Breckenridge",
+        "Vail",
+        "Beaver Creek",
+        "Keystone",
+        "Crested Butte",
+        "Steamboat Springs",
+        "Winter Park",
+        "Copper Mountain",
+        "Arapahoe Basin",
+        "Aspen / Snowmass",
+        "Eldora",
+        "Loveland",
+        "Wolf Creek",
+        "Monarch Mountain",
+        "Ski Cooper",
+        "Purgatory",
+        "Powderhorn",
+        "Sunlight Mountain"
+      ],
+      "raw_response": "Based on the live snowpack data provided, the EPIC resort with the most fresh snow right now is Telluride, with 3 inches of new snow in the last 72 hours.\n\nThe other EPIC resorts have 0 inches of new snow in the last 72 hours:\n- Breckenridge: 0\" new (72h)\n- Vail: 0\" new (72h) \n- Beaver Creek: 0\" new (72h)\n- Keystone: 0\" new (72h)\n- Crested Butte: 0\" new (72h)\n- Telluride: 3\" new (72h)\n\nSo Telluride stands out as the EPIC resort with the freshest powder at the moment.\n\n[RANKING: Telluride, Breckenridge, Vail, Beaver Creek, Keystone, Crested Butte]"
+    },
+    {
+      "id": "F05",
+      "category": "factual",
+      "question": "Which INDY resort has the deepest base right now?",
+      "selected_passes": [
+        "All"
+      ],
+      "start_city": "Denver",
+      "expected_type": "deterministic",
+      "notes": "Pass mentioned in question should override All",
+      "use_deterministic_simple_answers": false,
+      "answer": "Based on the live snowpack data, the INDY resort with the deepest base right now is Loveland, with 34 inches on the ground. This is significantly more than the other INDY resorts like Wolf Creek (21\" base), Ski Cooper (24\" base), and Monarch Mountain (1\" base).\n\nLoveland's deep base means they have a solid foundation to hold onto snow through the season, and it's less likely they'll hit rocks or have to close terrain due to low coverage. The lack of new snow in the last 72 hours indicates the base is well-established, not just from a recent storm.",
+      "ranking": [
+        "Loveland",
+        "Wolf Creek",
+        "Ski Cooper",
+        "Monarch Mountain",
+        "Purgatory",
+        "Powderhorn",
+        "Sunlight Mountain",
+        "Steamboat Springs",
+        "Winter Park",
+        "Copper Mountain",
+        "Arapahoe Basin",
+        "Aspen / Snowmass",
+        "Eldora",
+        "Breckenridge",
+        "Vail",
+        "Beaver Creek",
+        "Keystone",
+        "Crested Butte",
+        "Telluride"
+      ],
+      "raw_response": "Based on the live snowpack data, the INDY resort with the deepest base right now is Loveland, with 34 inches on the ground. This is significantly more than the other INDY resorts like Wolf Creek (21\" base), Ski Cooper (24\" base), and Monarch Mountain (1\" base).\n\nLoveland's deep base means they have a solid foundation to hold onto snow through the season, and it's less likely they'll hit rocks or have to close terrain due to low coverage. The lack of new snow in the last 72 hours indicates the base is well-established, not just from a recent storm.\n\n[RANKING: Loveland, Wolf Creek, Ski Cooper, Monarch Mountain, Purgatory, Powderhorn, Sunlight Mountain]"
+    }
+  ],
+  "errors": []
+}

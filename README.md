@@ -51,6 +51,9 @@ Create a file named `.env` in the project root (this file is gitignored — neve
 OPENROUTER_API_KEY=sk-or-your-key-here
 SERPAPI_API_KEY=your-serpapi-key-here
 COTRIP_API_KEY=your-cotrip-key-here
+
+# Optional: PostgreSQL for user accounts (see step 8)
+# DATABASE_URL=postgresql://powracle_user:your_secure_password@localhost:5432/powracle
 ```
 
 ### 5. Download historical snow data
@@ -77,7 +80,167 @@ Loads both the snow CSVs and traffic CSV into DuckDB. Run once (or again after r
 PYTHONPATH=. python db/setup.py
 ```
 
-### 8. Launch the app
+### 8. (Optional) Set up PostgreSQL for User Accounts
+
+User accounts are **optional**. You can run the app in guest mode without PostgreSQL. However, if you want to track your ski days, calculate pass ROI, and save trip plans, you'll need PostgreSQL.
+
+#### 8a. Install PostgreSQL
+
+**Option 1: Docker (Recommended for Development)**
+
+Using Docker CLI:
+```bash
+# Pull and run PostgreSQL container
+docker run -d \
+  --name powracle-postgres \
+  -e POSTGRES_USER=powracle_user \
+  -e POSTGRES_PASSWORD=your_secure_password \
+  -e POSTGRES_DB=powracle \
+  -p 5432:5432 \
+  -v powracle-data:/var/lib/postgresql/data \
+  postgres:15-alpine
+
+# Verify it's running
+docker ps
+```
+
+Or using Docker Compose (recommended - a `docker-compose.yml` is included):
+```bash
+# 1. Edit docker-compose.yml to set your password (optional for local dev)
+# 2. Start PostgreSQL
+docker-compose up -d
+
+# 3. Verify it's running
+docker ps | grep postgres
+```
+
+Your DATABASE_URL will be:
+```
+DATABASE_URL=postgresql://powracle_user:your_secure_password@localhost:5432/powracle
+```
+
+**Quick Docker Commands:**
+```bash
+# Stop/start
+docker-compose stop
+docker-compose start
+
+# View logs
+docker-compose logs -f
+
+# Restart
+docker-compose restart
+
+# Stop and remove (keeps data in volume)
+docker-compose down
+```
+
+**Option 2: Native Installation**
+
+**macOS:**
+```bash
+brew install postgresql@15
+brew services start postgresql@15
+```
+
+**Windows:**
+Download and install from [postgresql.org/download/windows](https://www.postgresql.org/download/windows/)
+
+**Linux (Ubuntu/Debian):**
+```bash
+sudo apt update
+sudo apt install postgresql postgresql-contrib
+sudo systemctl start postgresql
+```
+
+#### 8b. Create the Database
+
+**If using Docker:** Skip this step — the database, user, and password were already created by the Docker container.
+
+**If using native installation:**
+
+```bash
+# Connect to PostgreSQL
+psql postgres
+
+# Create database and user
+CREATE DATABASE powracle;
+CREATE USER powracle_user WITH PASSWORD 'your_secure_password';
+GRANT ALL PRIVILEGES ON DATABASE powracle TO powracle_user;
+
+# Exit psql
+\q
+```
+
+#### 8c. Add Database Connection to `.env`
+
+Add this line to your `.env` file:
+
+```
+DATABASE_URL=postgresql://powracle_user:your_secure_password@localhost:5432/powracle
+```
+
+#### 8d. Run Database Migrations
+
+```bash
+# Run all migrations automatically
+python db/run_migrations.py
+```
+
+This script will:
+- ✅ Check database connection
+- ✅ Create all tables (users, passes, trips, stats, etc.)
+- ✅ Apply all schema updates (pass tracking, ticket prices, etc.)
+- ✅ Skip migrations already applied (safe to run multiple times)
+
+**First-time setup or upgrading?** This script handles both - it's idempotent and will only apply migrations that haven't been run yet.
+
+<details>
+<summary><b>📋 Complete PostgreSQL Setup Example (Docker)</b></summary>
+
+Here's the full workflow from scratch:
+
+```bash
+# 1. Start PostgreSQL with Docker Compose
+docker-compose up -d
+
+# 2. Add DATABASE_URL to your .env file
+echo "DATABASE_URL=postgresql://powracle_user:your_secure_password@localhost:5432/powracle" >> .env
+
+# 3. Run all migrations
+python db/run_migrations.py
+
+# 4. Verify setup
+docker exec powracle-postgres psql -U powracle_user -d powracle -c "\dt"
+
+# 5. Launch the app
+streamlit run app.py
+```
+
+You should see output like:
+```
+[SUCCESS] All migrations completed successfully!
+Your database is ready. You can now run: streamlit run app.py
+```
+
+</details>
+
+#### 8e. User Management Features
+
+Once PostgreSQL is set up, the app will show a login/register screen. Features include:
+
+- **Profile Management**: Track your home city, ski ability, preferred terrain
+- **Season Passes**: Add your Ikon, Epic, or Indy passes with cost and average ticket price
+- **Log Ski Days**: Record each ski day (with or without your pass) to track ROI
+- **Pass ROI Calculator**: See how much you're saving vs. buying day tickets
+- **Trip Planning**: Save multi-day trip plans with the Smart Trip Planner
+- **Season Stats**: View your total days skied, break-even progress, and best value days
+
+**Guest Mode**: If you skip PostgreSQL setup or the database isn't available, the app runs in guest mode with all core features (live conditions, chat, forecasts) but without personalization or trip tracking.
+
+---
+
+### 9. Launch the app
 
 ```bash
 streamlit run app.py
@@ -252,6 +415,7 @@ Type any ski-related question in plain English. The Oracle calls its tools, cons
 | [COtrip REST API](https://manage-api.cotrip.org/login) (Colorado DOT) | `get_live_traffic` | Live road incidents, chain laws, surface conditions | Real-time |
 | CDOT Historical Traffic → DuckDB | `get_best_departure_time` | 10 years of hourly traffic volumes on I-70, US-40, US-285 | Static |
 | [Open-Meteo API](https://open-meteo.com/) | `get_snow_forecast` | 7-day snowfall forecast (HRRR model, no key required) | Real-time |
+| PostgreSQL (optional) | User accounts | Profile, passes, ski day logs, trip plans, ROI tracking | User-managed |
 
 ---
 
@@ -291,5 +455,74 @@ Type any ski-related question in plain English. The Oracle calls its tools, cons
 - **Historical traffic data**: CDOT traffic volumes → DuckDB
 - **Snow forecast**: Open-Meteo API (HRRR model, no key required)
 - **Web search**: SerpAPI
+- **User accounts**: PostgreSQL + SQLAlchemy (optional)
+- **Authentication**: bcrypt password hashing
 - **UI**: Streamlit + Plotly
 - **Map tiles**: ESRI World Topo Map
+
+---
+
+## Troubleshooting
+
+### PostgreSQL Connection Issues
+
+**"Could not connect to database"**
+- **Docker**: Check container is running: `docker ps | grep powracle-postgres`
+  - If stopped: `docker start powracle-postgres`
+- **Native**: Check PostgreSQL is running: `brew services list` (macOS) or `sudo systemctl status postgresql` (Linux)
+- Verify DATABASE_URL in `.env` matches your database credentials
+- Test connection: `psql postgresql://powracle_user:your_password@localhost:5432/powracle`
+
+**"relation does not exist"**
+- Run migrations: `PYTHONPATH=. python db/init_postgres.py`
+- For upgrades, also run the column migration scripts in `db/`
+
+**"password authentication failed"**
+- Check your password in the DATABASE_URL matches what you set with `CREATE USER`
+- Try resetting: `ALTER USER powracle_user WITH PASSWORD 'new_password';`
+
+### Docker Data Persistence
+
+If you need to reset your database or delete the container:
+
+```bash
+# Remove container and volume (deletes all data)
+docker-compose down -v
+
+# Or with Docker CLI
+docker stop powracle-postgres
+docker rm powracle-postgres
+docker volume rm powracle-data
+```
+
+Your data persists in the `powracle-data` volume. To back it up:
+
+```bash
+# Backup
+docker exec powracle-postgres pg_dump -U powracle_user powracle > backup.sql
+
+# Restore
+docker exec -i powracle-postgres psql -U powracle_user powracle < backup.sql
+```
+
+### Guest Mode
+
+If PostgreSQL isn't available or you don't want to set it up, the app automatically runs in **guest mode**. You'll see a notice at the top and won't see login/register forms. All core features (live conditions, chat, forecasts, maps) work normally — you just won't have personalization, saved trips, or ROI tracking.
+
+---
+
+## License
+
+MIT License - See [LICENSE](LICENSE) for details.
+
+---
+
+## Contributing
+
+Pull requests welcome! Please open an issue first to discuss major changes.
+
+---
+
+## Contact
+
+Questions? Found a bug? Open an issue on [GitHub](https://github.com/Ttopiac/colorado-powracle/issues).

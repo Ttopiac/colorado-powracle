@@ -47,8 +47,8 @@ Determine which sections apply based on changed files:
 #### Always section
 | Item | How to verify |
 |---|---|
-| App starts without errors | In `--fix` mode: check out the PR branch, run `conda activate powracle && timeout 15 streamlit run app.py &` then check if the process started without errors and kill it. In `--discuss` mode: flag as "author must confirm". |
-| Tested 2 canonical questions | In `--fix` mode: check out the PR branch, run 2 canonical questions from CLAUDE.md through the agent via a Python one-liner (`agent.invoke()`). Pick questions relevant to the PR's changes plus one general question. Record the tool calls and final answer. In `--discuss` mode: flag as "author must confirm". |
+| App starts without errors | During review (Step 4): flag as "will be verified during fix step". During fix (Step 8b): run the automated startup test. |
+| Tested 2 canonical questions | During review (Step 4): flag as "will be verified during fix step". During fix (Step 8b): run 2 canonical questions through the agent. |
 | No `.env`, `data/`, `*.duckdb`, `*.parquet` staged | Check `gh pr diff <N> --name-only` for these patterns |
 | No `.claude/settings.local.json` staged | Check `gh pr diff <N> --name-only` for `settings.local.json` |
 | No runtime artifact files staged | Check `gh pr diff <N> --name-only` for `eval/results/`, timestamped JSONs, output dumps |
@@ -169,6 +169,8 @@ Want to discuss these, or should I go ahead and fix? (use --fix next time to ski
 
 ### 8. Fix blocking issues and run runtime checks
 
+> **This step runs in both modes** — in `--fix` mode it runs immediately after the review comment; in `--discuss` mode it runs when the user says "fix" / "go ahead". Runtime verification is ALWAYS part of fixing — never punt it to the author.
+
 **Check out the PR branch first**: `gh pr checkout <NUMBER>`
 
 #### 8a. Fix code/doc issues
@@ -177,7 +179,7 @@ For each fixable issue:
 2. **Commit with a clear message** explaining what was fixed and why
 3. **Push** to the PR branch
 
-#### 8b. Run runtime verification (always in `--fix` mode)
+#### 8b. Run runtime verification
 These checks were previously "author must confirm" but in `--fix` mode you run them yourself:
 
 **App startup test:**

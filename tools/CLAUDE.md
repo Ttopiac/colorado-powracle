@@ -14,7 +14,8 @@ Each file wraps one or more data-fetching functions as LangChain `Tool` objects 
 **Routing logic in `get_snowpack_history`:**
 - Keywords `consistent` / `reliable` → orders by STDDEV (lowest = most consistent)
 - Keywords `above average` / `below average` / `this season` → compares current year vs 10yr avg
-- Default → monthly averages for "best month to ski X" queries
+- Keywords `same time` / `typical` / `last year` → current month's historical averages
+- Default → monthly averages for "best month to ski X" queries; if a month name is detected (e.g. "january"), filters to that specific month
 
 **Resort name matching:** `_clean()` strips whitespace and surrounding quotes from LLM input, then does case-insensitive substring match against `RESORT_STATIONS` keys (e.g., `"steamboat"` matches `"Steamboat Springs"`).
 

@@ -18,6 +18,8 @@
 - [ ] `conda activate powracle && streamlit run app.py` starts without errors
 - [ ] Tested at least 2 canonical questions end-to-end (see CLAUDE.md for the list)
 - [ ] No `.env`, `data/`, `*.duckdb`, or `*.parquet` files staged (`git status` is clean of these)
+- [ ] No `.claude/settings.local.json` staged — this is machine-local and must never be committed
+- [ ] No runtime artifact files staged (e.g. `eval/results/*.json`, timestamped output dumps)
 - [ ] No relative paths introduced — all use `Path(__file__).resolve().parent.parent`
 - [ ] No system Python used — conda `powracle` env only
 
@@ -40,7 +42,15 @@
 ### If you added a new API or external service
 - [ ] Key added to your local `.env` (never committed)
 - [ ] Key name documented in `CLAUDE.md`, `AGENTS.md`, and `README.md` under API keys / `.env`
-- [ ] Graceful fallback implemented when key is absent
+- [ ] Graceful fallback implemented when key is absent or service is unreachable — app must not crash for unauthenticated / offline users
+
+### If you added new infrastructure (Docker, Postgres, new DB engine, etc.)
+- [ ] `docker-compose.yml` or equivalent setup file included and documented
+- [ ] `ONBOARDING.md` updated with new setup steps (install, start, migrate)
+- [ ] `CLAUDE.md` and `AGENTS.md` updated to describe the new dependency
+- [ ] New `requirements_*.txt` or dependency file referenced in `ONBOARDING.md`
+- [ ] Graceful fallback or clear error message when infrastructure is unavailable at startup
+- [ ] All runtime DB/service call sites (not just the startup check) are wrapped in `try/except` — a startup connection check does not protect mid-session failures
 
 ### If you added or changed ingestion (`ingestion/`)
 - [ ] `ingestion/CLAUDE.md` updated

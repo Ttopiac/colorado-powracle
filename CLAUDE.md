@@ -14,12 +14,21 @@ Built as a Big Data Architecture project using:
 - **Agent**: LangChain `zero-shot-react-description` via `langchain-classic` (compatibility layer for LangChain 1.x)
 - **LLM**: `anthropic/claude-3-haiku` via OpenRouter
 - **UI**: Streamlit with Plotly Scattermapbox (ESRI World Topo Map tiles), Mountain Stone theme (`#383f4a` / `#424e5c`)
+- **API**: FastAPI (`api.py`) exposes the same chat agent via `POST /chat` and `GET /health`
 
 ## How to run
+### Streamlit UI
 ```bash
 conda activate powracle   # always use this env
 cd /Users/chli4608/Repositories/colorado_powder_oracle
 streamlit run app.py
+```
+
+### FastAPI API
+```bash
+conda activate powracle
+uvicorn api:app --reload
+# Docs at http://127.0.0.1:8000/docs
 ```
 
 ## Key decisions & fixes made during setup
@@ -69,7 +78,11 @@ Do NOT use system Python or base Anaconda.
 - Smart Trip Planner: collapsible expander with date picker, day slider (1–7), lodging preference, and notes. Generates a multi-day itinerary prompt sent to the agent. Uses `load_7day_forecasts()` (cached 3hr) for full 7-day Open-Meteo forecast, and injects distances + traffic tips into the agent context.
 - User accounts (optional, requires PostgreSQL): login/register sidebar forms, multi-page navigation (Profile, Trips, Stats, Settings). Profile page: username, home city, ski ability, preferred terrain, ski pass management (add/delete), ski day logging with pass ROI tracking. Trips page: trip history with per-day check-in and star ratings. Stats page: season ROI dashboard (days skied, pass cost, ticket value, break-even progress, top value days). Settings: data export placeholder, account deletion with confirmation.
 - Guest mode: if PostgreSQL is unavailable or unconfigured (`check_connection()` returns False), login/register UI is hidden and user is set to `"guest"`. All core features work normally.
+- Deterministic answers toggle: optional checkbox that answers simple factual live-data questions (most fresh snow, deepest base) directly from SNOTEL data without calling the LLM. Logic in `agent/deterministic_answers.py`.
 - Theme: Mountain Stone (`#383f4a` / `#424e5c`)
+
+## Evaluation
+- `eval/prompts.csv` — 30 benchmark prompts (10 factual, 10 recommendation, 10 explanatory) with expected answer type (deterministic vs agent)
 
 ## Extension roadmap
 - Phase 2: Traffic — DONE (`tools/traffic_tools.py`, `ingestion/cdot_historical.py`, `ingestion/cotrip_live.py`)

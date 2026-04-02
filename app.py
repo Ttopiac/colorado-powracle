@@ -5,9 +5,11 @@ Run: streamlit run app.py  (from project root, with conda env active)
 
 from concurrent.futures import ThreadPoolExecutor as _TPE
 from agent.agent import build_agent
+from agent.chat_service import run_chat_turn
+from agent.deterministic_answers import try_answer_simple_live_question
 from ingestion.snotel_live import fetch_current_snowpack, fetch_all_snowpack
 from ingestion.openmeteo_forecast import get_weekend_snowfall
-from resorts import RESORT_STATIONS
+from resorts import RESORT_STATIONS, ALL_PASSES, STARTING_CITIES, resort_passes, pass_filter, haversine_miles
 import plotly.graph_objects as go
 import streamlit as st
 import streamlit.components.v1 as components
@@ -782,20 +784,7 @@ def load_7day_forecasts():
     return out
 
 
-# ── Pass filter helpers ────────────────────────────────────────────────────────
-
-_ALL_PASSES = ["IKON", "EPIC", "INDY"]
-
-
-def _resort_passes(resort: str) -> list[str]:
-    return RESORT_STATIONS[resort].get("pass", [])
-
-
-def _pass_filter(resort: str, selected: list[str]) -> bool:
-    """True if resort should be shown given the selected pass list."""
-    if not selected or "All" in selected:
-        return True
-    return any(p in _resort_passes(resort) for p in selected)
+# ── Filter helpers ────────────────────────────────────────────────────────────
 
 
 def _apply_quick_filters(
@@ -809,36 +798,13 @@ def _apply_quick_filters(
         visible = {r: d for r, d in visible.items() if d and d.get("snow_depth_in", 0) >= 50}
     if st.session_state.get("filter_distance", False):
         visible = {r: d for r, d in visible.items()
-                   if _haversine_miles(user_lat, user_lon,
+                   if haversine_miles(user_lat, user_lon,
                                        RESORT_STATIONS[r]["lat"],
                                        RESORT_STATIONS[r]["lon"]) < 100}
     if st.session_state.get("filter_forecast", False) and forecasts:
         visible = {r: d for r, d in visible.items()
                    if forecasts.get(r) and forecasts[r].get("weekend_total_in", 0) >= 4}
     return visible
-
-
-# ── Location + visual constants ───────────────────────────────────────────────
-
-_STARTING_CITIES = {
-    "Denver":           (39.7392, -104.9903),
-    "Boulder":          (40.0150, -105.2705),
-    "Colorado Springs": (38.8339, -104.8214),
-    "Fort Collins":     (40.5853, -105.0844),
-    "Pueblo":           (38.2544, -104.6091),
-    "Grand Junction":   (39.0639, -108.5506),
-}
-
-
-def _haversine_miles(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Straight-line great-circle distance in miles."""
-    R = 3958.8
-    dlat = math.radians(lat2 - lat1)
-    dlon = math.radians(lon2 - lon1)
-    a = (math.sin(dlat / 2) ** 2
-         + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2))
-         * math.sin(dlon / 2) ** 2)
-    return 2 * R * math.asin(math.sqrt(a))
 
 
 # Map marker style per pass
@@ -908,6 +874,8 @@ if "quick_filters" not in st.session_state:
     st.session_state.quick_filters = []
 if "snowfall_enabled" not in st.session_state:
     st.session_state.snowfall_enabled = False
+if "use_deterministic_simple_answers" not in st.session_state:
+    st.session_state.use_deterministic_simple_answers = False
 
 # ── First-load detection ───────────────────────────────────────────────────────
 # On first load, conditions are not yet fetched. We render the layout (including
@@ -922,14 +890,14 @@ _first_load = "conditions" not in st.session_state
 selected_passes = st.session_state.pass_filter or ["All"]
 city_name       = st.session_state.start_city
 sort_by         = st.session_state.sort_by
-user_lat, user_lon = _STARTING_CITIES[city_name]
+user_lat, user_lon = STARTING_CITIES[city_name]
 
 # ── Pre-compute display values (only when data is available) ──────────────────
 
 if not _first_load:
     conditions    = st.session_state.conditions
     forecasts     = st.session_state.forecasts
-    visible       = {r: d for r, d in conditions.items() if _pass_filter(r, selected_passes)}
+    visible       = {r: d for r, d in conditions.items() if pass_filter(r, selected_passes)}
     visible       = _apply_quick_filters(visible, forecasts, user_lat, user_lon)
     vis_names     = list(visible.keys())
     _use_base_map = sort_by == "🏔️ Base Snow"
@@ -961,7 +929,7 @@ if not _first_load and (st.session_state.current_page == "Home" or st.session_st
                            if visible[r] else 0 for r in p_resorts]
                 p_map_vals = [p_bases[i] if _use_base_map else p_snows[i]
                               for i in range(len(p_resorts))]
-                p_dists = [_haversine_miles(user_lat, user_lon,
+                p_dists = [haversine_miles(user_lat, user_lon,
                                             RESORT_STATIONS[r]["lat"], RESORT_STATIONS[r]["lon"])
                            for r in p_resorts]
                 p_texts = [
@@ -1165,13 +1133,13 @@ with col_left:
             # Closest powder (6"+ new snow, sorted by distance)
             powder_resorts = [(r, d) for r, d in valid_resorts.items() if d.get("new_snow_72h", 0) >= 6]
             if powder_resorts:
-                closest_powder = min(powder_resorts, key=lambda x: _haversine_miles(
+                closest_powder = min(powder_resorts, key=lambda x: haversine_miles(
                     user_lat, user_lon,
                     RESORT_STATIONS[x[0]]["lat"],
                     RESORT_STATIONS[x[0]]["lon"]
                 ))
                 closest_powder_name = closest_powder[0]
-                closest_powder_dist = _haversine_miles(
+                closest_powder_dist = haversine_miles(
                     user_lat, user_lon,
                     RESORT_STATIONS[closest_powder_name]["lat"],
                     RESORT_STATIONS[closest_powder_name]["lon"]
@@ -1198,7 +1166,7 @@ with col_left:
 
     selected_passes = st.multiselect(
         "My pass(es):",
-        options=["All"] + _ALL_PASSES,
+        options=["All"] + ALL_PASSES,
         key="pass_filter",
         help="Filter resorts to only those included on your ski pass(es).",
     )
@@ -1207,10 +1175,10 @@ with col_left:
 
     city_name = st.selectbox(
         "Starting from:",
-        options=list(_STARTING_CITIES.keys()),
+        options=list(STARTING_CITIES.keys()),
         key="start_city",
     )
-    user_lat, user_lon = _STARTING_CITIES[city_name]
+    user_lat, user_lon = STARTING_CITIES[city_name]
 
     sort_by = st.radio(
         "Sort by:",
@@ -1252,7 +1220,7 @@ with col_left:
             unsafe_allow_html=True)
     else:
         # Recalculate visible with current widget values (user may have changed filter)
-        visible = {r: d for r, d in conditions.items() if _pass_filter(r, selected_passes)}
+        visible = {r: d for r, d in conditions.items() if pass_filter(r, selected_passes)}
         visible = _apply_quick_filters(visible, forecasts, user_lat, user_lon)
 
         _use_base_map = sort_by == "🏔️ Base Snow"
@@ -1276,7 +1244,7 @@ with col_left:
             def _sort_key(item):
                 resort, d = item
                 if sort_by == "📍 Distance":
-                    return _haversine_miles(
+                    return haversine_miles(
                         user_lat, user_lon,
                         RESORT_STATIONS[resort]["lat"], RESORT_STATIONS[resort]["lon"]
                     )
@@ -1288,8 +1256,8 @@ with col_left:
 
         cards_html = []
         for resort, d in _ordered:
-            badges = " ".join(_PASS_BADGE[p] for p in _resort_passes(resort))
-            dist = _haversine_miles(
+            badges = " ".join(_PASS_BADGE[p] for p in resort_passes(resort))
+            dist = haversine_miles(
                 user_lat, user_lon,
                 RESORT_STATIONS[resort]["lat"], RESORT_STATIONS[resort]["lon"]
             )
@@ -1329,6 +1297,12 @@ with col_right:
     st.caption(
         "Ask me where to ski, which resort has the best snow, "
         "or how this season compares to average.")
+
+    st.checkbox(
+        "Use deterministic answers for simple factual snow questions",
+        key="use_deterministic_simple_answers",
+        help="When enabled, a narrow set of simple live-data questions (like deepest base or most fresh snow right now) will be answered directly from the data instead of through the LLM.",
+    )
 
     # ── Smart Trip Planner ────────────────────────────────────────────────
     with st.expander("🗓️ Smart Trip Planner", expanded=False):
@@ -1385,7 +1359,7 @@ REQUIREMENTS:
                 # Add pass restriction with explicit resort list
                 if selected_passes and "All" not in selected_passes:
                     pass_str = " and ".join(selected_passes)
-                    valid_resorts = [r for r in RESORT_STATIONS if _pass_filter(r, selected_passes)]
+                    valid_resorts = [r for r in RESORT_STATIONS if pass_filter(r, selected_passes)]
                     trip_prompt += f"\n**IMPORTANT**: I have a {pass_str} Pass. You MUST ONLY recommend resorts from this list: {', '.join(valid_resorts)}. Do not recommend any other resorts."
                 else:
                     trip_prompt += f"\nMy ski pass(es): Any resort is fine"
@@ -1520,7 +1494,7 @@ if prompt and not _first_load:
     # Add traffic/distance context for trip planning
     if _is_trip_plan:
         _distance_info = "\n".join(
-            f"  - {r}: {_haversine_miles(user_lat, user_lon, RESORT_STATIONS[r]['lat'], RESORT_STATIONS[r]['lon']):.0f} mi from {city_name}"
+            f"  - {r}: {haversine_miles(user_lat, user_lon, RESORT_STATIONS[r]['lat'], RESORT_STATIONS[r]['lon']):.0f} mi from {city_name}"
             for r in RESORT_STATIONS
         )
         _traffic_tips = """
@@ -1545,7 +1519,7 @@ if prompt and not _first_load:
     if selected_passes and "All" not in selected_passes:
         pass_str = " and ".join(selected_passes)
         pass_resorts = [r for r in RESORT_STATIONS
-                        if _pass_filter(r, selected_passes)]
+                        if pass_filter(r, selected_passes)]
         agent_prompt = (
             _context
             + f"[User context: I have a {pass_str} Pass. "
@@ -1563,55 +1537,47 @@ if prompt and not _first_load:
             with st.spinner("Checking the snowpack..."):
                 print(f"\n\033[1mQuestion:\033[0m {prompt}")
 
-                # Pass the last 3 exchanges (6 messages) as conversation memory.
-                # Older turns are dropped to keep context costs bounded.
-                # Only the current question gets the full live snapshot injected.
-                # exclude just-appended user msg
-                _history = st.session_state.messages[:-1]
-                # last 3 exchanges = 6 messages
-                _recent = _history[-6:]
-                _conv = [
-                    ("human" if m["role"] ==
-                     "user" else "assistant", m["content"])
-                    for m in _recent
-                ]
-                _conv.append(("human", agent_prompt))
-                result = st.session_state.agent.invoke({"messages": _conv})
-                response = result["messages"][-1].content
+                simple_result = None
+                if st.session_state.get("use_deterministic_simple_answers", False) and not _is_trip_plan:
+                    simple_result = try_answer_simple_live_question(
+                        question=prompt,
+                        conditions=conditions,
+                        selected_passes=selected_passes,
+                        resort_stations=RESORT_STATIONS,
+                        pass_filter_fn=pass_filter,
+                    )
 
-            # Extract hidden [RANKING: ...] line and strip it from displayed text
-            _ranking_match = re.search(r'\[RANKING:\s*([^\]]+)\]', response)
-            response_display = re.sub(
-                r'\s*\[RANKING:[^\]]+\]', '', response).strip()
-            st.markdown(response_display)
+                if simple_result is not None:
+                    response_display = simple_result["answer"]
 
-    st.session_state.messages.append(
-        {"role": "assistant", "content": response_display})
+                    st.markdown(response_display)
 
-    # Update AI Pick ranking from the explicit hidden ranking line
-    if _ranking_match:
-        _ranked = [r.strip() for r in _ranking_match.group(1).split(',')]
-        # Ensure all resorts are present (append any the agent omitted)
-        for r in RESORT_STATIONS:
-            if r not in _ranked:
-                _ranked.append(r)
-    else:
-        # Fallback: mention-order
-        _lower = response.lower()
-        _mentioned = sorted(
-            [(r, _lower.index(r.lower()))
-             for r in RESORT_STATIONS if r.lower() in _lower],
-            key=lambda x: x[1]
-        )
-        _ranked = [r for r, _ in _mentioned]
-        for r in RESORT_STATIONS:
-            if r not in _ranked:
-                _ranked.append(r)
-    st.session_state["ai_pick_ranking"] = _ranked
+                    st.session_state.messages.append(
+                        {"role": "assistant", "content": response_display}
+                    )
 
-    # Rerun so the left column reflects the new ranking immediately
-    if sort_by == "🤖 AI Pick":
-        st.rerun()
+                    st.session_state["ai_pick_ranking"] = simple_result["ranking"]
+                else:
+                    chat_result = run_chat_turn(
+                        agent=st.session_state.agent,
+                        messages=st.session_state.messages,
+                        agent_prompt=agent_prompt,
+                        resort_names=list(RESORT_STATIONS.keys()),
+                    )
+
+                    response_display = chat_result["response_display"]
+
+                    st.markdown(response_display)
+
+                    st.session_state.messages.append(
+                        {"role": "assistant", "content": response_display}
+                    )
+
+                    st.session_state["ai_pick_ranking"] = chat_result["ranking"]
+
+                # Rerun so the left column reflects the new ranking immediately
+                if sort_by == "🤖 AI Pick":
+                    st.rerun()
 
 # ── First load: fetch data, fill cards placeholder, then rerun to show map ────
 
@@ -1626,7 +1592,7 @@ if _first_load:
     forecasts  = st.session_state.forecasts
 
     # Compute cards with seed widget values (Denver / Fresh Snow / All)
-    _visible_fl = {r: d for r, d in conditions.items() if _pass_filter(r, selected_passes)}
+    _visible_fl = {r: d for r, d in conditions.items() if pass_filter(r, selected_passes)}
     _use_base_fl = sort_by == "🏔️ Base Snow"
     _field_fl   = "snow_depth_in" if _use_base_fl else "new_snow_72h"
     _floor_fl   = 30 if _use_base_fl else 6
@@ -1641,8 +1607,8 @@ if _first_load:
 
     _cards_fl = []
     for resort, d in _ordered_fl:
-        badges = " ".join(_PASS_BADGE[p] for p in _resort_passes(resort))
-        dist = _haversine_miles(
+        badges = " ".join(_PASS_BADGE[p] for p in resort_passes(resort))
+        dist = haversine_miles(
             user_lat, user_lon,
             RESORT_STATIONS[resort]["lat"], RESORT_STATIONS[resort]["lon"]
         )

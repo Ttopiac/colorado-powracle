@@ -17,14 +17,18 @@ Built as a Big Data Architecture project using:
 - **Agent**: LangChain `zero-shot-react-description` via `langchain-classic`
 - **LLM**: `anthropic/claude-3-haiku` via OpenRouter
 - **UI**: Streamlit + Plotly Scattermapbox (ESRI World Topo tiles), Mountain Stone theme
+- **API**: FastAPI (`api.py`) — `POST /chat` and `GET /health`
 
 ## Project layout
 ```
 colorado_powder_oracle/
 ├── app.py              # Streamlit UI — left panel conditions, right panel chat
-├── resorts.py          # RESORT_STATIONS dict: 19 resorts, station IDs, corridors, pass info
+├── api.py              # FastAPI endpoint — POST /chat, GET /health
+├── resorts.py          # RESORT_STATIONS dict, shared helpers (pass_filter, STARTING_CITIES)
 ├── agent/
 │   ├── agent.py        # build_agent() — assembles LLM + 6 tools
+│   ├── chat_service.py # run_chat_turn() — shared chat logic used by app.py and api.py
+│   ├── deterministic_answers.py # optional deterministic path for simple factual questions
 │   └── prompts.py      # SYSTEM_PROMPT — resort knowledge, traffic patterns, decision logic
 ├── tools/
 │   ├── snowpack_tools.py   # get_current_snowpack, get_snowpack_history
@@ -88,7 +92,7 @@ COTRIP_API_KEY=...
 - Tool functions must accept a **single `str` argument** — LangChain `zero-shot-react-description` requirement. For multi-param tools, accept a comma-separated or JSON string and parse inside.
 - Always return a non-empty string. Never return `None`. Return a graceful "no data" message on failure.
 - If a live API key is missing (`COTRIP_API_KEY`), return a message telling the agent to fall back to `web_search` — do not raise an exception.
-- `get_snowpack_history` routes queries by keyword: `consistent`/`reliable` → STDDEV ranking; `above/below average`/`this season` → year-vs-10yr-avg comparison; default → monthly averages.
+- `get_snowpack_history` routes queries by keyword: `consistent`/`reliable` → STDDEV ranking; `above/below average`/`this season` → year-vs-10yr-avg comparison; `same time`/`typical`/`last year` → current month comparison; default → monthly averages (filtered to specific month if a month name like "january" is detected in the query).
 
 ### ingestion/
 - **SNOTEL API response quirk:** the `/data` endpoint wraps elements under a nested `"data"` key per station. Iterate `station.get("data", [])`, not the top-level list. Do not change this.
@@ -154,6 +158,7 @@ COTRIP_API_KEY=...
 - **User accounts** (optional, requires PostgreSQL): login/register forms, profile page (username, home city, ski ability, preferred terrain), ski pass management, ski day logging with pass ROI tracking, trip history with check-in and ratings, season stats dashboard, account settings
 - **Guest mode**: app runs fully without PostgreSQL — login UI is hidden, all core features (live conditions, chat, forecasts, maps) work normally
 - **Chat**: `st.chat_input` + `st.chat_message`, last 3 exchanges passed as conversation memory, live snapshot injected per turn
+- **Deterministic answers toggle**: optional checkbox — answers simple factual live-data questions (most fresh snow, deepest base) directly from data without LLM. Logic in `agent/deterministic_answers.py`
 - **Theme**: Mountain Stone (`#383f4a` / `#424e5c`)
 
 ## PostgreSQL User Accounts (Optional)

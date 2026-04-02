@@ -277,6 +277,54 @@ Then open [http://localhost:8501](http://localhost:8501) in your browser.
 
 ---
 
+## API (FastAPI)
+
+In addition to the Streamlit app, Colorado Powracle now exposes the LangChain chat agent through a small FastAPI service.
+
+### Run the API
+
+From the project root, with the conda environment active:
+
+```bash
+conda activate powracle
+uvicorn api:app --reload
+```
+
+Then open:
+
+- API root: [http://127.0.0.1:8000](http://127.0.0.1:8000)
+- Interactive docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+
+### Endpoints
+
+- `GET /health` — simple health check
+- `POST /chat` — send a question and receive an answer plus ranking
+
+### Example request
+
+```bash
+curl -X POST "http://127.0.0.1:8000/chat" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question": "Which resort has the most fresh snow right now?",
+    "messages": [],
+    "selected_passes": ["All"],
+    "start_city": "Denver"
+  }'
+```
+
+### Example response
+
+```json
+{
+  "answer": "Loveland currently has the deepest base depth...",
+  "ranking": ["Loveland", "Ski Cooper", "Winter Park"],
+  "raw_response": "..."
+}
+```
+
+---
+
 ## The Interface
 
 ### Left Panel — Live Conditions

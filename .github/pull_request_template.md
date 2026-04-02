@@ -26,29 +26,29 @@
 ### Documentation (required for every code change)
 > Every code change must update the relevant docs **in the same PR**. Do not open a separate docs PR.
 - [ ] Root `CLAUDE.md` updated (tool table, UI details, env vars — whichever applies)
-- [ ] `AGENTS.md` updated (same sections as CLAUDE.md — these two must stay in sync)
+- [ ] `docs/AGENTS.md` updated (same sections as CLAUDE.md — these two must stay in sync)
 - [ ] Relevant subdirectory `CLAUDE.md` updated (`tools/`, `ingestion/`, `db/`, or `agent/`)
-- [ ] `CONTEXT_MIN.md` updated if critical rules or module gotchas changed
-- [ ] `ONBOARDING.md` updated if setup steps, key rules, or context file list changed
+- [ ] `docs/CONTEXT_MIN.md` updated if critical rules or module gotchas changed
+- [ ] `docs/ONBOARDING.md` updated if setup steps, key rules, or context file list changed
 - [ ] `README.md` updated if user-facing features, data sources, or tech stack changed
 
 ### If you added or modified a tool (`tools/`)
 - [ ] Tool function accepts a single `str` and always returns a non-empty `str`
 - [ ] Tool registered in `agent/agent.py` `build_agent()` tools list
 - [ ] Knowledge block added/updated in `agent/prompts.py` `SYSTEM_PROMPT`
-- [ ] Tool table updated in root `CLAUDE.md` and `AGENTS.md`
+- [ ] Tool table updated in root `CLAUDE.md` and `docs/AGENTS.md`
 - [ ] `tools/CLAUDE.md` updated
 
 ### If you added a new API or external service
 - [ ] Key added to your local `.env` (never committed)
-- [ ] Key name documented in `CLAUDE.md`, `AGENTS.md`, and `README.md` under API keys / `.env`
+- [ ] Key name documented in `CLAUDE.md`, `docs/AGENTS.md`, and `README.md` under API keys / `.env`
 - [ ] Graceful fallback implemented when key is absent or service is unreachable — app must not crash for unauthenticated / offline users
 
 ### If you added new infrastructure (Docker, Postgres, new DB engine, etc.)
 - [ ] `docker-compose.yml` or equivalent setup file included and documented
-- [ ] `ONBOARDING.md` updated with new setup steps (install, start, migrate)
-- [ ] `CLAUDE.md` and `AGENTS.md` updated to describe the new dependency
-- [ ] New `requirements_*.txt` or dependency file referenced in `ONBOARDING.md`
+- [ ] `docs/ONBOARDING.md` updated with new setup steps (install, start, migrate)
+- [ ] `CLAUDE.md` and `docs/AGENTS.md` updated to describe the new dependency
+- [ ] New `requirements_*.txt` or dependency file referenced in `docs/ONBOARDING.md`
 - [ ] Graceful fallback or clear error message when infrastructure is unavailable at startup
 - [ ] All runtime DB/service call sites (not just the startup check) are wrapped in `try/except` — a startup connection check does not protect mid-session failures
 
@@ -68,7 +68,7 @@
 - [ ] `streamlit run app.py` renders without errors or layout breakage
 - [ ] Briefly describe what changed and why in the "What this PR does" section above
 - [ ] `CLAUDE.md` UI details section updated with the new feature
-- [ ] `AGENTS.md` UI features section updated
+- [ ] `docs/AGENTS.md` UI features section updated
 
 ### Design principles (reviewer will check these)
 > These protect the original architecture. If your PR violates any of them, explain why in the PR description.

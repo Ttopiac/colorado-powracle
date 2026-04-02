@@ -59,7 +59,7 @@ Each file wraps one or more data-fetching functions as LangChain `Tool` objects 
    ```
 4. Import the tool object in `agent/agent.py` and add it to the `tools=[]` list in `build_agent()`.
 5. Add a knowledge block to `SYSTEM_PROMPT` in `agent/prompts.py` so the agent knows when to reach for it.
-6. Update the tools table in `CLAUDE.md` (root) and `AGENTS.md`.
+6. Update the tools table in `CLAUDE.md` (root) and `docs/AGENTS.md`.
 
 ## Constraints
 - Tool functions must accept a single `str` argument (LangChain requirement for `zero-shot-react-description`).

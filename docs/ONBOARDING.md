@@ -99,8 +99,8 @@ The repo ships with context files that explain the architecture, rules, and gotc
 
 These tools read the context files automatically when you open the repo. No extra setup needed — your AI already knows the project rules.
 
-- **Claude Code:** reads [CLAUDE.md](CLAUDE.md) at the root and in whichever subdirectory you're working in
-- **Cursor / Windsurf / others:** reads [AGENTS.md](AGENTS.md) at the root
+- **Claude Code:** reads `CLAUDE.md` at the root and in whichever subdirectory you're working in
+- **Cursor / Windsurf / others:** reads [AGENTS.md](AGENTS.md) in `docs/`
 
 ### AI chatboxes (ChatGPT, Claude.ai, Gemini, etc.)
 

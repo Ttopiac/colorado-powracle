@@ -4,7 +4,7 @@ This folder contains the first-pass benchmark setup for Colorado Powracle.
 
 ## Files
 
-- `prompts.csv` — benchmark prompt dataset
+- `deterministic_answers_eval.csv' — benchmark prompt dataset
 - `run_agent_eval.py` — script for running the current local system on the prompt set
 - `results/` — generated output files (local artifacts)
 

@@ -25,7 +25,7 @@ from api import ChatRequest, chat
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PROMPTS_PATH = ROOT / "eval" / "prompts.csv"
+PROMPTS_PATH = ROOT / "eval" / "deterministic_answers_eval.csv"
 RESULTS_DIR = ROOT / "eval" / "results"
 
 

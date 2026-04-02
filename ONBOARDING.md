@@ -44,10 +44,10 @@ PYTHONPATH=/path/to/colorado_powder_oracle \
   /opt/anaconda3/envs/powracle/bin/python db/run_migrations.py
 ```
 
-**Dependencies** — install the user accounts extras:
+**Dependencies** — the user accounts packages are included in the main `requirements.txt` under the "User accounts (optional)" section. If you haven't installed them yet:
 ```bash
 conda activate powracle
-pip install -r requirements_user_accounts.txt
+pip install -r requirements.txt
 ```
 
 **Verify the setup:**

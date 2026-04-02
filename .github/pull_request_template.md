@@ -28,8 +28,8 @@
 - [ ] Root `CLAUDE.md` updated (tool table, UI details, env vars — whichever applies)
 - [ ] `AGENTS.md` updated (same sections as CLAUDE.md — these two must stay in sync)
 - [ ] Relevant subdirectory `CLAUDE.md` updated (`tools/`, `ingestion/`, `db/`, or `agent/`)
-- [ ] `CONTEXT_MIN.md` updated if critical rules or module gotchas changed
-- [ ] `ONBOARDING.md` updated if setup steps, key rules, or context file list changed
+- [ ] `docs/CONTEXT_MIN.md` updated if critical rules or module gotchas changed
+- [ ] `docs/ONBOARDING.md` updated if setup steps, key rules, or context file list changed
 - [ ] `README.md` updated if user-facing features, data sources, or tech stack changed
 
 ### If you added or modified a tool (`tools/`)
@@ -46,9 +46,9 @@
 
 ### If you added new infrastructure (Docker, Postgres, new DB engine, etc.)
 - [ ] `docker-compose.yml` or equivalent setup file included and documented
-- [ ] `ONBOARDING.md` updated with new setup steps (install, start, migrate)
+- [ ] `docs/ONBOARDING.md` updated with new setup steps (install, start, migrate)
 - [ ] `CLAUDE.md` and `AGENTS.md` updated to describe the new dependency
-- [ ] New `requirements_*.txt` or dependency file referenced in `ONBOARDING.md`
+- [ ] New `requirements_*.txt` or dependency file referenced in `docs/ONBOARDING.md`
 - [ ] Graceful fallback or clear error message when infrastructure is unavailable at startup
 - [ ] All runtime DB/service call sites (not just the startup check) are wrapped in `try/except` — a startup connection check does not protect mid-session failures
 

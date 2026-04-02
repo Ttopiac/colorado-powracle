@@ -61,8 +61,8 @@ Determine which sections apply based on changed files:
 | `CLAUDE.md` updated | Check if `CLAUDE.md` is in the changed files list; if new features were added, read the diff to confirm relevant sections were updated |
 | `AGENTS.md` updated | Same as CLAUDE.md — check it's in the diff if applicable |
 | Subdirectory `CLAUDE.md` updated | Check changed files for `tools/CLAUDE.md`, `ingestion/CLAUDE.md`, etc. |
-| `CONTEXT_MIN.md` updated | Check if new critical rules were introduced and whether `CONTEXT_MIN.md` is in the diff |
-| `ONBOARDING.md` updated | If setup steps changed, verify `ONBOARDING.md` is in the diff |
+| `docs/CONTEXT_MIN.md` updated | Check if new critical rules were introduced and whether `docs/CONTEXT_MIN.md` is in the diff |
+| `docs/ONBOARDING.md` updated | If setup steps changed, verify `docs/ONBOARDING.md` is in the diff |
 | `README.md` updated | If user-facing features changed, verify `README.md` is in the diff |
 
 #### Tools section (if `tools/` changed)
@@ -85,7 +85,7 @@ Determine which sections apply based on changed files:
 | Item | How to verify |
 |---|---|
 | Setup file documented | Check for `docker-compose.yml`, `schema.sql`, migration scripts in the diff |
-| `ONBOARDING.md` updated | Verify it's in the diff with the new setup steps |
+| `docs/ONBOARDING.md` updated | Verify it's in the diff with the new setup steps |
 | `CLAUDE.md` / `AGENTS.md` updated | Verify they mention the new dependency |
 | Graceful fallback | Read the DB connection code — look for try/except and fallback behavior |
 
@@ -243,9 +243,9 @@ Then post a summary comment listing every rule added and why.
 - No `.env`, `data/`, `*.duckdb`, `*.parquet` staged (already present)
 - No `.claude/settings.local.json` committed
 - No runtime artifact files committed (`eval/results/`, timestamped JSONs, output dumps)
-- New infrastructure (Docker, Postgres, etc.) must be documented in `ONBOARDING.md`
+- New infrastructure (Docker, Postgres, etc.) must be documented in `docs/ONBOARDING.md`
 - New external services must implement graceful fallback when unavailable
-- `requirements_*.txt` additions must be reflected in `CLAUDE.md` / `ONBOARDING.md`
+- `requirements_*.txt` additions must be reflected in `CLAUDE.md` / `docs/ONBOARDING.md`
 
 ## Rules: what constitutes a template violation
 - A checked box that fails code verification → blocking violation

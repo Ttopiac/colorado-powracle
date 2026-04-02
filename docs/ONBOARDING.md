@@ -82,7 +82,7 @@ The repo ships with context files that explain the architecture, rules, and gotc
 | File | Purpose | Update when |
 |------|---------|-------------|
 | [CLAUDE.md](CLAUDE.md) | Primary project context for Claude Code | Any architectural or feature change |
-| [AGENTS.md](AGENTS.md) | Project context for Cursor/Windsurf/Copilot (must stay in sync with CLAUDE.md) | Same as CLAUDE.md |
+| [AGENTS.md](../AGENTS.md) | Project context for Cursor/Windsurf/Copilot (must stay in sync with CLAUDE.md) | Same as CLAUDE.md |
 | [CONTEXT_MIN.md](CONTEXT_MIN.md) | Minimal rules + gotchas for quick chatbox paste | Critical rules or gotchas change |
 | [README.md](README.md) | Public-facing docs, setup guide, feature list | User-facing features, data sources, or tech stack change |
 | [tools/CLAUDE.md](tools/CLAUDE.md) | Tool contracts, routing logic, how to add a tool | Tools added or modified |
@@ -99,15 +99,15 @@ The repo ships with context files that explain the architecture, rules, and gotc
 
 These tools read the context files automatically when you open the repo. No extra setup needed — your AI already knows the project rules.
 
-- **Claude Code:** reads [CLAUDE.md](CLAUDE.md) at the root and in whichever subdirectory you're working in
-- **Cursor / Windsurf / others:** reads [AGENTS.md](AGENTS.md) at the root
+- **Claude Code:** reads `CLAUDE.md` at the root and in whichever subdirectory you're working in
+- **Cursor / Windsurf / others:** reads [AGENTS.md](../AGENTS.md) at the root
 
 ### AI chatboxes (ChatGPT, Claude.ai, Gemini, etc.)
 
 Your AI won't read the repo automatically. Choose how much context to paste or attach based on your task:
 
 **Option A — Full context** (new features, unfamiliar module, or first time contributing)
-1. Paste or attach [AGENTS.md](AGENTS.md) — full architecture, rules, and gotchas
+1. Paste or attach [AGENTS.md](../AGENTS.md) — full architecture, rules, and gotchas
 2. Also paste or attach the subdirectory file for the module you're working on:
 
 | Working on | Also paste or attach |
@@ -137,7 +137,7 @@ Key things it checks:
 - If you added a tool — it's registered in `agent.py`, `prompts.py`, and the docs
 - If you changed the DB schema — `db/setup.py` and [db/CLAUDE.md](db/CLAUDE.md) are updated
 
-**AI agents:** the pre-merge checklist is also in [AGENTS.md](AGENTS.md). If you ask your AI to open a PR, it should run through the checklist automatically before doing so.
+**AI agents:** the pre-merge checklist is also in [AGENTS.md](../AGENTS.md). If you ask your AI to open a PR, it should run through the checklist automatically before doing so.
 
 ---
 

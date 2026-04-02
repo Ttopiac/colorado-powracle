@@ -82,7 +82,10 @@ Do NOT use system Python or base Anaconda.
 - Theme: Mountain Stone (`#383f4a` / `#424e5c`)
 
 ## Evaluation
-- `eval/prompts.csv` — 30 benchmark prompts (10 factual, 10 recommendation, 10 explanatory) with expected answer type (deterministic vs agent)
+- `eval/deterministic_answers_eval.csv` — 30 benchmark prompts (10 factual, 10 recommendation, 10 explanatory) with expected answer type (deterministic vs agent)
+- `eval/run_agent_eval.py` — runs the full prompt set against the live agent; supports `--use-deterministic-simple-answers` and `--limit N` flags
+- `eval/results/` — runtime output JSONs (gitignored; regenerate locally with `python -m eval.run_agent_eval`)
+- `eval/baselines/` — intentionally preserved baseline reports in Markdown; commit here when capturing a reference run for comparison
 
 ## Extension roadmap
 - Phase 2: Traffic — DONE (`tools/traffic_tools.py`, `ingestion/cdot_historical.py`, `ingestion/cotrip_live.py`)

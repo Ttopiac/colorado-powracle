@@ -37,6 +37,9 @@ Thumbs.db
 # ── Internal planning docs — never push ──────────────────────────────────────
 plans/
 
+# ── Eval runtime outputs — regenerate locally, keep baselines in eval/baselines/
+eval/results/
+
 # ── Misc files not needed on GitHub ──────────────────────────────────────────
 *.zip
 
@@ -52,3 +55,4 @@ plans/
 !CONTEXT_MIN.md
 !.github/pull_request_template.md
 !ONBOARDING.md
+!eval/baselines/*.md

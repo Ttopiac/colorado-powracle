@@ -2,7 +2,7 @@
 name: review-pr
 description: Review ALL open pull requests against the project PR template, fix their bodies, post detailed comments, and update the PR template itself if new checks are discovered.
 argument-hint: "[optional: pr-number to review a single PR]"
-allowed-tools: Bash, Read, Glob, Grep, Edit, Write
+allowed-tools: Bash, Read, Glob, Grep, Edit, Write, AskUserQuestion
 ---
 
 # PR Template Reviewer
@@ -139,7 +139,41 @@ The comment must include:
 - For runtime items that cannot be code-verified: explicitly flag them as "author must confirm"
 - A final action list for the author
 
-### 7. After all PRs — update the PR template if needed
+### 7. Checkpoint — ask the user before fixing
+
+After posting the review comment, if there are **any fixable blocking issues** (missing doc updates, missing files, code issues — anything you can fix by editing files), pause and present them to the user:
+
+```
+Found N blocking issues I can fix:
+1. [brief description of issue]
+2. [brief description of issue]
+...
+
+Want to discuss these before I fix, or should I go ahead?
+```
+
+**Default is to wait for discussion.** Do NOT fix issues without explicit approval. The user may want to push back on whether something is truly blocking, adjust the approach, or handle it themselves.
+
+- If the user explicitly says to fix (e.g. "fix", "go ahead", "yes", "fix them") → proceed to Step 8.
+- If the user wants to discuss (default) → answer their questions, and only proceed to Step 8 when they explicitly say to go ahead.
+- If the user says to skip fixing → skip Step 8 entirely and go to Step 9.
+
+### 8. Fix blocking issues
+
+For each fixable issue:
+1. **Check out the PR branch**: `gh pr checkout <NUMBER>`
+2. **Make the code/doc changes** using Edit or Write tools
+3. **Commit with a clear message** explaining what was fixed and why
+4. **Push** to the PR branch
+5. **Post a follow-up comment** on the PR summarizing exactly what was fixed:
+   - Which files were changed
+   - What each change does
+   - Which checklist items are now resolved
+   - Which items still need the author (runtime tests, etc.)
+
+After fixing, update the PR body to check off the newly-resolved items.
+
+### 9. After all PRs — update the PR template if needed
 Review your running log of new checks discovered. For any check that:
 - Was missing from the template and needed to be applied to one or more PRs, OR
 - Represents a recurring risk not currently covered

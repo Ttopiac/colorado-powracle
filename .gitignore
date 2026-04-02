@@ -53,8 +53,7 @@ eval/results/
 !CLAUDE.md
 !**/CLAUDE.md
 !AGENTS.md
-!CONTEXT_MIN.md
+!docs/*.md
 !.github/pull_request_template.md
-!ONBOARDING.md
 !eval/baselines/*.md
 !.claude/skills/**/*.md

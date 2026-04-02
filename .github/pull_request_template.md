@@ -49,7 +49,8 @@
 - [ ] `ONBOARDING.md` updated with new setup steps (install, start, migrate)
 - [ ] `CLAUDE.md` and `AGENTS.md` updated to describe the new dependency
 - [ ] New `requirements_*.txt` or dependency file referenced in `ONBOARDING.md`
-- [ ] Graceful fallback or clear error message when infrastructure is unavailable
+- [ ] Graceful fallback or clear error message when infrastructure is unavailable at startup
+- [ ] All runtime DB/service call sites (not just the startup check) are wrapped in `try/except` — a startup connection check does not protect mid-session failures
 
 ### If you added or changed ingestion (`ingestion/`)
 - [ ] `ingestion/CLAUDE.md` updated

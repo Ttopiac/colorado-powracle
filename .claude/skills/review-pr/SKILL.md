@@ -59,7 +59,7 @@ Determine which sections apply based on changed files:
 | Item | How to verify |
 |---|---|
 | `CLAUDE.md` updated | Check if `CLAUDE.md` is in the changed files list; if new features were added, read the diff to confirm relevant sections were updated |
-| `docs/AGENTS.md` updated | Same as CLAUDE.md — check it's in the diff if applicable |
+| `AGENTS.md` updated | Same as CLAUDE.md — check it's in the diff if applicable |
 | Subdirectory `CLAUDE.md` updated | Check changed files for `tools/CLAUDE.md`, `ingestion/CLAUDE.md`, etc. |
 | `docs/CONTEXT_MIN.md` updated | Check if new critical rules were introduced and whether `docs/CONTEXT_MIN.md` is in the diff |
 | `docs/ONBOARDING.md` updated | If setup steps changed, verify `docs/ONBOARDING.md` is in the diff |
@@ -71,14 +71,14 @@ Determine which sections apply based on changed files:
 | Tool accepts single `str`, returns non-empty `str` | Read the function signature and return statements in the diff |
 | Tool registered in `agent/agent.py` | Check if `agent/agent.py` is in the diff and the tool name appears in the tools list |
 | Knowledge block in `agent/prompts.py` | Check if `agent/prompts.py` is in the diff and a new block was added |
-| Tool table updated in `CLAUDE.md` and `docs/AGENTS.md` | Grep for the tool name in the `CLAUDE.md`/`docs/AGENTS.md` diff |
+| Tool table updated in `CLAUDE.md` and `AGENTS.md` | Grep for the tool name in the `CLAUDE.md`/`AGENTS.md` diff |
 | `tools/CLAUDE.md` updated | Check it's in the changed files |
 
 #### API / external service section
 | Item | How to verify |
 |---|---|
 | Key never committed | Grep the diff for anything resembling an API key (long alphanumeric strings, `sk-`, `Bearer `) |
-| Key documented in context files | Grep the `CLAUDE.md`/`docs/AGENTS.md`/`README.md` diffs for the key name |
+| Key documented in context files | Grep the `CLAUDE.md`/`AGENTS.md`/`README.md` diffs for the key name |
 | Graceful fallback | Read the tool/service code in the diff — look for try/except around external calls and a meaningful fallback return value |
 
 #### Infrastructure section (if Docker, Postgres, new DB engine added)
@@ -86,7 +86,7 @@ Determine which sections apply based on changed files:
 |---|---|
 | Setup file documented | Check for `docker-compose.yml`, `schema.sql`, migration scripts in the diff |
 | `docs/ONBOARDING.md` updated | Verify it's in the diff with the new setup steps |
-| `CLAUDE.md` / `docs/AGENTS.md` updated | Verify they mention the new dependency |
+| `CLAUDE.md` / `AGENTS.md` updated | Verify they mention the new dependency |
 | Graceful fallback | Read the DB connection code — look for try/except and fallback behavior |
 
 #### DB section (if `db/` changed)
@@ -106,7 +106,7 @@ Determine which sections apply based on changed files:
 |---|---|
 | No layout errors | Cannot verify at review time — flag as "author must confirm" |
 | `CLAUDE.md` UI section updated | Grep `CLAUDE.md` diff for the new UI feature name |
-| `docs/AGENTS.md` updated | Same check |
+| `AGENTS.md` updated | Same check |
 
 #### Design principles
 | Item | How to verify |

@@ -1,7 +1,7 @@
 ---
 name: review-pr
 description: Review ALL open pull requests against the project PR template, fix their bodies, post detailed comments, and update the PR template itself if new checks are discovered.
-argument-hint: "[optional: pr-number to review a single PR]"
+argument-hint: "[optional: pr-number] [--fix | --discuss]"
 allowed-tools: Bash, Read, Glob, Grep, Edit, Write, AskUserQuestion
 ---
 
@@ -141,7 +141,14 @@ The comment must include:
 
 ### 7. Checkpoint — ask the user before fixing
 
-After posting the review comment, if there are **any fixable blocking issues** (missing doc updates, missing files, code issues — anything you can fix by editing files), pause and present them to the user:
+After posting the review comment, if there are **any fixable blocking issues** (missing doc updates, missing files, code issues — anything you can fix by editing files), behavior depends on the mode flag in `$ARGUMENTS`:
+
+**Parse the mode flag from `$ARGUMENTS`:**
+- `--fix` → auto-fix all blocking issues immediately (skip to Step 8)
+- `--discuss` → present the issues and wait for the user to approve before fixing (default)
+- No flag → same as `--discuss`
+
+**In `--discuss` mode (default)**, present the issues and wait:
 
 ```
 Found N blocking issues I can fix:
@@ -149,14 +156,16 @@ Found N blocking issues I can fix:
 2. [brief description of issue]
 ...
 
-Want to discuss these before I fix, or should I go ahead?
+Want to discuss these, or should I go ahead and fix? (use --fix next time to skip this step)
 ```
 
-**Default is to wait for discussion.** Do NOT fix issues without explicit approval. The user may want to push back on whether something is truly blocking, adjust the approach, or handle it themselves.
+**Wait for the user's response before proceeding.** Do NOT fix issues without explicit approval. The user may want to push back on whether something is truly blocking, adjust the approach, or handle it themselves.
 
-- If the user explicitly says to fix (e.g. "fix", "go ahead", "yes", "fix them") → proceed to Step 8.
-- If the user wants to discuss (default) → answer their questions, and only proceed to Step 8 when they explicitly say to go ahead.
-- If the user says to skip fixing → skip Step 8 entirely and go to Step 9.
+- If the user explicitly says to fix (e.g. "fix", "go ahead", "yes") → proceed to Step 8.
+- If the user wants to discuss → answer their questions, and only proceed to Step 8 when they explicitly say to go ahead.
+- If the user says to skip → skip Step 8 entirely and go to Step 9.
+
+**In `--fix` mode**, skip the checkpoint and proceed directly to Step 8.
 
 ### 8. Fix blocking issues
 

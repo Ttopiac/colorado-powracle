@@ -61,3 +61,12 @@ Using the current prompt set:
 
 - `eval/results/` contains generated artifacts and can be kept local while the evaluation pipeline is still evolving
 - if collaborators merge changes into `main`, do a quick sync with `main/origin` before starting new work or rerunning benchmarks
+
+## Initial factual scoring result
+
+Using the saved deterministic-off and deterministic-on benchmark runs:
+
+- deterministic-off overall factual accuracy: 60%
+- deterministic-on overall factual accuracy: 100%
+
+This suggests the optional deterministic mode substantially improves the narrow factual subset.

@@ -110,6 +110,15 @@ COTRIP_API_KEY=...
 - `SYSTEM_PROMPT` in `prompts.py` is injected as the agent prefix — the LLM sees it before every turn. When adding a tool, always add a corresponding knowledge block here so the agent knows when to reach for it.
 - Tool registration order in `build_agent()` influences agent priority. Add new tools at the end of the list unless there is a specific reason to reorder.
 
+## Evaluation
+- `eval/deterministic_answers_eval.csv` — 30 benchmark prompts (10 factual, 10 recommendation, 10 explanatory) with expected answer type (deterministic vs agent)
+- `eval/run_agent_eval.py` — runs the full prompt set against the live agent; supports `--use-deterministic-simple-answers` and `--limit N` flags
+- `eval/score_outputs.py` — scores factual prompts (F01–F10) against expected answers; writes `eval/results/scored_summary.json` and `EVAL_SUMMARY.md`
+- `eval/plot_results.py` — generates bar-chart figures from scored summary; writes PNGs to `eval/figures/`
+- `eval/results/` — runtime output JSONs (gitignored; regenerate locally with `python -m eval.run_agent_eval`)
+- `eval/figures/` — slide-ready evaluation charts (committed for collaboration)
+- `eval/baselines/` — intentionally preserved baseline reports in Markdown; commit here when capturing a reference run for comparison
+
 ## Before requesting a merge (PR checklist)
 
 **AI agents: run through this checklist before creating or suggesting a pull request. Do not open a PR if any applicable item is unchecked.**

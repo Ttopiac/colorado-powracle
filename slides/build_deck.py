@@ -40,7 +40,7 @@ def add_rect(slide, left, top, width, height, color):
 
 def add_text(slide, left, top, width, height, text, *,
              size=18, bold=False, color=BODY, align=PP_ALIGN.LEFT,
-             anchor=MSO_ANCHOR.TOP, font="Calibri"):
+             anchor=MSO_ANCHOR.TOP, font="Calibri", link=None):
     box = slide.shapes.add_textbox(left, top, width, height)
     tf = box.text_frame
     tf.word_wrap = True
@@ -55,6 +55,8 @@ def add_text(slide, left, top, width, height, text, *,
     r.font.bold = bold
     r.font.color.rgb = color
     r.font.name = font
+    if link:
+        r.hyperlink.address = link
     return box
 
 def add_bullets(slide, left, top, width, height, items, *,
@@ -128,7 +130,8 @@ add_text(s, Inches(0.8), Inches(4.6), Inches(12), Inches(0.5),
 add_text(s, Inches(0.8), Inches(5.1), Inches(12), Inches(0.5),
          "Chi-Hui Lin  ·  [ teammate ]  ·  [ teammate ]", size=16, color=BODY)
 add_text(s, Inches(0.8), Inches(6.7), Inches(12), Inches(0.4),
-         "github.com/Ttopiac/colorado-powracle", size=12, color=MUTED)
+         "github.com/Ttopiac/colorado-powracle", size=12, color=ACCENT,
+         link="https://github.com/Ttopiac/colorado-powracle")
 add_speaker_notes(s, "Title slide. Introduce team and one-line pitch.")
 
 # 2. THE PROBLEM -------------------------------------------------------------
@@ -532,7 +535,8 @@ add_text(s, Inches(0.8), Inches(3.7), Inches(12), Inches(0.6),
 add_text(s, Inches(0.8), Inches(5.8), Inches(12), Inches(0.5),
          "Chi-Hui Lin  ·  [ teammate ]  ·  [ teammate ]", size=16, color=BODY, bold=True)
 add_text(s, Inches(0.8), Inches(6.25), Inches(12), Inches(0.4),
-         "github.com/Ttopiac/colorado-powracle", size=13, color=MUTED)
+         "github.com/Ttopiac/colorado-powracle", size=13, color=ACCENT,
+         link="https://github.com/Ttopiac/colorado-powracle")
 add_text(s, Inches(0.8), Inches(6.65), Inches(12), Inches(0.4),
          "Palette: AlpineFrost", size=11, color=MUTED)
 

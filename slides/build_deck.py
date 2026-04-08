@@ -126,7 +126,7 @@ add_text(s, Inches(0.8), Inches(2.5), Inches(12), Inches(0.8),
 add_text(s, Inches(0.8), Inches(4.6), Inches(12), Inches(0.5),
          "Big Data Architecture · Spring 2026", size=16, color=MUTED, bold=True)
 add_text(s, Inches(0.8), Inches(5.1), Inches(12), Inches(0.5),
-         "Chi-Hui Lin  ·  Drona  ·  Josef", size=16, color=BODY)
+         "[ team names — fill in ]", size=16, color=BODY)
 add_text(s, Inches(0.8), Inches(6.7), Inches(12), Inches(0.4),
          "github.com/Ttopiac/colorado-powracle", size=12, color=MUTED)
 add_speaker_notes(s, "Title slide. Introduce team and one-line pitch.")
@@ -530,7 +530,7 @@ add_text(s, Inches(0.8), Inches(2.6), Inches(12), Inches(1.2),
 add_text(s, Inches(0.8), Inches(3.7), Inches(12), Inches(0.6),
          "Questions?", size=22, color=RGBColor(0xff,0xff,0xff))
 add_text(s, Inches(0.8), Inches(5.8), Inches(12), Inches(0.5),
-         "Chi-Hui Lin  ·  Drona  ·  Josef", size=16, color=BODY, bold=True)
+         "[ team names — fill in ]", size=16, color=BODY, bold=True)
 add_text(s, Inches(0.8), Inches(6.25), Inches(12), Inches(0.4),
          "github.com/Ttopiac/colorado-powracle", size=13, color=MUTED)
 add_text(s, Inches(0.8), Inches(6.65), Inches(12), Inches(0.4),

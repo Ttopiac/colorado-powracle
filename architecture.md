@@ -4,17 +4,23 @@
 
 ```mermaid
 graph LR
-    User(["🎿 User"]) --> UI["Streamlit UI<br/>app.py"]
+    User(["🎿 User"]) --> Clients["Streamlit UI (app.py)<br/>FastAPI (api.py)"]
 
-    UI -->|live conditions + forecast| APIs["External APIs<br/>SNOTEL · COtrip · Open-Meteo · SerpAPI"]
-    UI -->|chat question| Agent["ReAct Agent<br/>Claude 3 Haiku"]
+    Clients -->|live conditions + forecast| APIs["External APIs<br/>SNOTEL · COtrip · Open-Meteo · SerpAPI"]
+    Clients -->|chat question| Chat["chat_service.run_chat_turn"]
+
+    Chat -->|simple factual?| Det["Deterministic Answers<br/>(bypass LLM)"]
+    Chat -->|otherwise| Agent["ReAct Agent<br/>Claude 3 Haiku"]
 
     Agent -->|Thought → Action → Observe| Tools["6 LangChain Tools"]
 
     Tools --> APIs
-    Tools --> DB["DuckDB<br/>10yr snow + traffic history"]
+    Tools --> DDB["DuckDB<br/>10yr snow + traffic history"]
 
-    Agent -->|answer| UI
+    Clients -.->|accounts · passes · trips · ROI| PG["PostgreSQL<br/>(auth/, models/)"]
+
+    Agent -->|answer| Clients
+    Det -->|answer| Clients
 ```
 
 ---
@@ -25,7 +31,8 @@ graph LR
 graph TB
     %% ── User Layer ──────────────────────────────────────────────────
     User(["🎿 User"])
-    User -->|question| UI
+    User -->|browser| UI
+    User -->|HTTP| API
 
     subgraph UI ["Streamlit App (app.py)"]
         direction TB
@@ -33,10 +40,38 @@ graph TB
         Cards["❄️ Resort Condition Cards<br/>19 resorts, sorted by snow/distance/AI pick"]
         Map["🗺️ Plotly Scattermap<br/>ESRI World Topo tiles, pass-colored markers"]
         Filters["🎛️ Controls<br/>Pass filter (IKON/EPIC/INDY) · Starting city · Sort"]
+        Account["👤 Account Pages<br/>Profile · Trips · Stats · Settings"]
     end
 
-    %% ── Agent Layer ─────────────────────────────────────────────────
-    UI -->|agent_prompt + live snapshot + chat history| Agent
+    subgraph API ["FastAPI Service (api.py)"]
+        direction TB
+        EpChat["POST /chat"]
+        EpHealth["GET /health"]
+    end
+
+    subgraph Auth ["User Accounts (auth/, models/)"]
+        direction TB
+        AM["auth_manager.py<br/>login · register · sessions"]
+        ROI["roi_calculator.py<br/>pass break-even"]
+        UserModel["models/user.py"]
+    end
+
+    UI --> Auth
+    Auth --> PG[("PostgreSQL<br/>users · passes · trips · ski_days")]
+
+    %% ── Chat Service Layer ──────────────────────────────────────────
+    UI -->|agent_prompt + live snapshot + chat history| ChatSvc
+    API --> ChatSvc
+
+    subgraph ChatSvc ["agent/chat_service.run_chat_turn"]
+        direction TB
+        Det["deterministic_answers.py<br/>fast-path for simple factual Qs"]
+        Route{"deterministic<br/>match?"}
+        Det --> Route
+    end
+
+    Route -->|yes, skip LLM| UI
+    Route -->|no| Agent
 
     subgraph Agent ["LangChain ReAct Agent (agent/)"]
         direction TB
@@ -135,8 +170,30 @@ graph TB
     class SNOTEL_API,COTRIP_API,OPENMETEO,SERP api
     class Snowpack,Traffic,V1,V2,V3 db
     class T1,T2,T3,T4,T5,T6 tool
-    class Chat,Cards,Map,Filters ui
+    class Chat,Cards,Map,Filters,Account,EpChat,EpHealth ui
     class LLM,Prompt,Loop agent
+    class PG db
+    class AM,ROI,UserModel,Det tool
+```
+
+## Evaluation Harness
+
+```mermaid
+graph LR
+    Prompts["eval/deterministic_answers_eval.csv<br/>30 benchmark prompts<br/>(factual · recommendation · explanatory)"]
+    Runner["eval/run_agent_eval.py<br/>--use-deterministic-simple-answers · --limit"]
+    Results["eval/results/*.json<br/>(gitignored)"]
+    Scorer["eval/score_outputs.py"]
+    Summary["eval/results/scored_summary.json<br/>EVAL_SUMMARY.md"]
+    Plotter["eval/plot_results.py"]
+    Figs["eval/figures/*.png<br/>(committed)"]
+    Baselines["eval/baselines/*.md<br/>(reference runs)"]
+
+    Prompts --> Runner
+    Runner -->|calls| ChatSvc["chat_service.run_chat_turn"]
+    Runner --> Results
+    Results --> Scorer --> Summary --> Plotter --> Figs
+    Summary -.->|compare| Baselines
 ```
 
 ## Data Flow Summary

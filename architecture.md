@@ -4,23 +4,27 @@
 
 ```mermaid
 graph LR
-    User(["🎿 User"]) --> Clients["Streamlit UI (app.py)<br/>FastAPI (api.py)"]
+    User(["🎿 User"]) --> UI["Streamlit UI<br/>app.py"]
+    User --> API["FastAPI<br/>api.py"]
 
-    Clients -->|live conditions + forecast| APIs["External APIs<br/>SNOTEL · COtrip · Open-Meteo · SerpAPI"]
-    Clients -->|chat question| Chat["chat_service.run_chat_turn"]
+    UI -->|live conditions + forecast| APIs["External APIs<br/>SNOTEL · COtrip · Open-Meteo · SerpAPI"]
+    API -->|live conditions + forecast| APIs
+    UI -->|chat question| Chat["chat_service.run_chat_turn"]
+    API -->|chat question| Chat
 
     Chat -->|simple factual?| Det["Deterministic Answers<br/>(bypass LLM)"]
     Chat -->|otherwise| Agent["ReAct Agent<br/>Claude 3 Haiku"]
 
     Agent -->|Thought → Action → Observe| Tools["6 LangChain Tools"]
-
     Tools --> APIs
     Tools --> DDB["DuckDB<br/>10yr snow + traffic history"]
 
-    Clients -.->|accounts · passes · trips · ROI| PG["PostgreSQL<br/>(auth/, models/)"]
+    UI -.->|accounts · passes · trips · ROI| PG["PostgreSQL<br/>(auth/, models/)"]
 
-    Agent -->|answer| Clients
-    Det -->|answer| Clients
+    Agent -->|answer| Chat
+    Det -->|answer| Chat
+    Chat --> UI
+    Chat --> API
 ```
 
 ---

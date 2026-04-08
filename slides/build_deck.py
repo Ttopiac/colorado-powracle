@@ -482,10 +482,11 @@ card(cl, Inches(3.35), cw, Inches(1.55),
      "Same content as root CLAUDE.md but in the convention used by Cursor and other AI tools.\n"
      "Kept in sync via a checkbox in the PR template — every assistant sees the same rules.")
 card(cl, Inches(5.0), cw, Inches(1.95),
-     ".github/pull_request_template.md  ·  the safety net",
-     "Every PR auto-loads a checklist: streamlit run cleanly · 2 canonical questions tested · "
+     ".github/pull_request_template.md  +  /review-pr skill",
+     "Template auto-loads on every PR: streamlit run cleanly · 2 canonical questions tested · "
      "no secrets staged · docs updated in the same PR · tools registered + prompt updated.\n"
-     "/review-pr skill verifies each box against the diff and runtime — not the author's word.")
+     "Custom Claude Code skill .claude/skills/review-pr/SKILL.md walks every checkbox against the "
+     "actual diff and runtime (not just whether the box is ticked) and posts an audit comment.")
 
 # right: flow diagram
 fl = Inches(7.0); fw = Inches(6.0)
@@ -498,7 +499,7 @@ flow(Inches(1.8), "Developer + AI assistant", ACCENT)
 flow(Inches(2.6), "reads CLAUDE.md / AGENTS.md", DARK)
 flow(Inches(3.4), "writes code", DARK)
 flow(Inches(4.2), "opens PR  →  checklist auto-loads", DARK)
-flow(Inches(5.0), "/review-pr verifies vs. diff + runtime", DARK)
+flow(Inches(5.0), "/review-pr skill audits diff + runtime", DARK)
 flow(Inches(5.8), "merge to main", ACCENT)
 for top in (Inches(2.4), Inches(3.2), Inches(4.0), Inches(4.8), Inches(5.6)):
     add_text(s, fl + Inches(2.85), top, Inches(0.4), Inches(0.3), "↓", size=14, bold=True, color=ACCENT)

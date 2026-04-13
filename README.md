@@ -5,6 +5,7 @@
 An AI-powered ski conditions assistant for Colorado. Ask natural-language questions about snow, traffic, and trip planning — every answer is grounded in live sensor data and 10 years of historical records, not LLM guesses.
 
 ## [Demo Video](https://www.youtube.com/watch?v=9hb8qsD4CKA)
+## [User Management Demo Video] (https://www.youtube.com/watch?v=sAVDxx9mR_g)
 
 [![Colorado Powracle Demo](https://img.youtube.com/vi/9hb8qsD4CKA/maxresdefault.jpg?v=2)](https://www.youtube.com/watch?v=9hb8qsD4CKA)
 

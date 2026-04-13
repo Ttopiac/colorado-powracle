@@ -4,11 +4,10 @@
 
 ```mermaid
 graph LR
-    User(["🎿 User"]) --> UI["Streamlit UI<br/>app.py"]
-    User --> API["FastAPI<br/>api.py"]
+    User(["🎿 Skier"]) -->|browser| UI["Streamlit UI<br/>app.py"]
+    Client(["🔌 API Clients<br/>eval harness · mobile · integrations"]) -->|HTTP| API["FastAPI<br/>api.py"]
 
     UI -->|live conditions + forecast| APIs["External APIs<br/>SNOTEL · COtrip · Open-Meteo · SerpAPI"]
-    API -->|live conditions + forecast| APIs
     UI -->|chat question| Chat["chat_service.run_chat_turn"]
     API -->|chat question| Chat
 
@@ -34,9 +33,10 @@ graph LR
 ```mermaid
 graph TB
     %% ── User Layer ──────────────────────────────────────────────────
-    User(["🎿 User"])
+    User(["🎿 Skier"])
+    Client(["🔌 API Clients<br/>eval harness · mobile · integrations"])
     User -->|browser| UI
-    User -->|HTTP| API
+    Client -->|HTTP| API
 
     subgraph UI ["Streamlit App (app.py)"]
         direction TB
